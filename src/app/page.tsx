@@ -102,7 +102,6 @@ export default function Home() {
         const enemyUnits: Unit[] = [
             { id: ++latestId, team: 'enemy', type: 'knight', position: { x: -2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, ...UNIT_DEFINITIONS.knight, targetId: null, cooldown: 0 },
             { id: ++latestId, team: 'enemy', type: 'knight', position: { x: 2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, ...UNIT_DEFINITIONS.knight, targetId: null, cooldown: 0 },
-            { id: ++latestId, team: 'enemy', type: 'knight', position: { x: 0, y: UNIT_DEFINITIONS.knight.yOffset, z: -10 }, hp: UNIT_DEFINITIONS.knight.maxHp, ...UNIT_DEFINITIONS.knight, targetId: null, cooldown: 0 },
         ];
         setUnits(prev => [...prev, ...newUnitsToDeploy, ...enemyUnits]);
     } else {
@@ -166,7 +165,6 @@ export default function Home() {
 
     const simulationInterval = setInterval(() => {
         setUnits(currentUnits => {
-            // Stop simulation if the game is no longer in battle state
             if (gameState !== 'battle' || winner) {
               return currentUnits;
             }
@@ -174,10 +172,8 @@ export default function Home() {
             let newUnits = [...currentUnits];
             enemyDeploymentCounterRef.current += 1;
 
-            // Spawn new enemy units periodically
             if (enemyDeploymentCounterRef.current >= 150) { // Every 15 seconds
                 enemyDeploymentCounterRef.current = 0;
-
                 let latestId = newUnits.reduce((maxId, unit) => Math.max(unit.id, maxId), 0);
                 const unitTypesToDeploy: UnitType[] = ['knight', 'archer'];
                 const typeToDeploy = unitTypesToDeploy[Math.floor(Math.random() * unitTypesToDeploy.length)];
@@ -187,66 +183,30 @@ export default function Home() {
 
                 if (typeToDeploy === 'archer') {
                     const definition = UNIT_DEFINITIONS.archer;
-                    newUnits.push({
-                        id: ++latestId,
-                        team: 'enemy',
-                        type: 'archer',
-                        position: { x: spawnX - 0.5, y: definition.yOffset, z: spawnZ },
-                        hp: definition.maxHp,
-                        ...definition,
-                        targetId: null,
-                        cooldown: 0,
-                    });
-                    newUnits.push({
-                        id: ++latestId,
-                        team: 'enemy',
-                        type: 'archer',
-                        position: { x: spawnX + 0.5, y: definition.yOffset, z: spawnZ },
-                        hp: definition.maxHp,
-                        ...definition,
-                        targetId: null,
-                        cooldown: 0,
-                    });
-                } else { // Knight
+                    newUnits.push({ id: ++latestId, team: 'enemy', type: 'archer', position: { x: spawnX - 0.5, y: definition.yOffset, z: spawnZ }, hp: definition.maxHp, ...definition, targetId: null, cooldown: 0 });
+                    newUnits.push({ id: ++latestId, team: 'enemy', type: 'archer', position: { x: spawnX + 0.5, y: definition.yOffset, z: spawnZ }, hp: definition.maxHp, ...definition, targetId: null, cooldown: 0 });
+                } else {
                     const definition = UNIT_DEFINITIONS[typeToDeploy];
-                    newUnits.push({
-                        id: ++latestId,
-                        team: 'enemy',
-                        type: typeToDeploy,
-                        position: { x: spawnX, y: definition.yOffset, z: spawnZ },
-                        hp: definition.maxHp,
-                        ...definition,
-                        targetId: null,
-                        cooldown: 0,
-                    });
+                    newUnits.push({ id: ++latestId, team: 'enemy', type: typeToDeploy, position: { x: spawnX, y: definition.yOffset, z: spawnZ }, hp: definition.maxHp, ...definition, targetId: null, cooldown: 0 });
                 }
             }
 
             const aliveUnits = newUnits.filter(u => u.hp > 0);
             
-            // Check for win conditions by king tower destruction
             const playerKingTower = aliveUnits.find(u => u.team === 'player' && u.isKingTower);
             const enemyKingTower = aliveUnits.find(u => u.team === 'enemy' && u.isKingTower);
 
-            if (!enemyKingTower) {
-              endGame('player');
-              return aliveUnits;
-            }
-            if (!playerKingTower) {
-              endGame('enemy');
-              return aliveUnits;
-            }
+            if (!enemyKingTower) { endGame('player'); return aliveUnits; }
+            if (!playerKingTower) { endGame('enemy'); return aliveUnits; }
 
             const playerUnits = aliveUnits.filter(u => u.team === 'player');
             const enemyUnits = aliveUnits.filter(u => u.team === 'enemy');
             
-            const findClosestTarget = (unit: Unit, targets: Unit[]) => {
+            const findClosestTargetInRange = (unit: Unit, targets: Unit[], range: number) => {
               if (targets.length === 0) return null;
               let closestTarget: Unit | null = null;
-              let minDistance = Infinity;
-
+              let minDistance = range;
               const unitPos = new THREE.Vector3(unit.position.x, unit.position.y, unit.position.z);
-
               for (const target of targets) {
                 const targetPos = new THREE.Vector3(target.position.x, target.position.y, target.position.z);
                 const distance = unitPos.distanceTo(targetPos);
@@ -262,36 +222,65 @@ export default function Home() {
 
             const updatedUnits = aliveUnits.map(unit => {
               let newUnit = { ...unit };
-              const potentialTargets = unit.team === 'player' ? enemyUnits : playerUnits;
-              let target = newUnit.targetId !== null ? unitMap.get(newUnit.targetId) : null;
+              if (newUnit.cooldown > 0) newUnit.cooldown--;
 
-              if (!target || target.hp <= 0) {
-                target = findClosestTarget(newUnit, potentialTargets);
-                newUnit.targetId = target ? target.id : null;
-              }
+              const potentialAttackTargets = newUnit.team === 'player' ? enemyUnits : playerUnits;
+              let attackTarget = findClosestTargetInRange(newUnit, potentialAttackTargets, newUnit.detectionRange);
 
-              if (target) {
+              if (attackTarget) { // An enemy is within detection range
+                newUnit.targetId = attackTarget.id;
                 const unitPos = new THREE.Vector3(newUnit.position.x, newUnit.position.y, newUnit.position.z);
-                const targetPos = new THREE.Vector3(target.position.x, target.position.y, target.position.z);
+                const targetPos = new THREE.Vector3(attackTarget.position.x, attackTarget.position.y, attackTarget.position.z);
                 const distance = unitPos.distanceTo(targetPos);
 
-                if (newUnit.cooldown > 0) {
-                  newUnit.cooldown -= 1;
-                }
-
-                // Towers do not move
-                if (distance > newUnit.attackRange && newUnit.type !== 'tower') {
-                  const direction = targetPos.clone().sub(unitPos).normalize();
-                  newUnit.position.x += direction.x * newUnit.speed;
-                  newUnit.position.y += direction.y * newUnit.speed;
-                  newUnit.position.z += direction.z * newUnit.speed;
-                } else if (newUnit.cooldown === 0 && distance <= newUnit.attackRange) {
+                if (distance > newUnit.attackRange) {
+                  // Move towards target
+                  if (newUnit.type !== 'tower') {
+                    const direction = targetPos.clone().sub(unitPos).normalize();
+                    newUnit.position.x += direction.x * newUnit.speed;
+                    newUnit.position.z += direction.z * newUnit.speed;
+                  }
+                } else if (newUnit.cooldown === 0) {
                   // Attack target
-                  const targetInMap = unitMap.get(target.id);
+                  const targetInMap = unitMap.get(attackTarget.id);
                   if (targetInMap) {
                     targetInMap.hp -= newUnit.attackDamage;
                   }
                   newUnit.cooldown = newUnit.attackSpeed;
+                }
+              } else { // No enemy in detection range, follow path
+                newUnit.targetId = null;
+                if (newUnit.type === 'tower') return newUnit; 
+
+                const targetTowers = newUnit.team === 'player' ? enemyUnits.filter(u => u.type === 'tower') : playerUnits.filter(u => u.type === 'tower');
+                const leftTower = targetTowers.find(t => t.position.x < 0 && !t.isKingTower);
+                const rightTower = targetTowers.find(t => t.position.x > 0 && !t.isKingTower);
+                const kingTower = targetTowers.find(t => t.isKingTower);
+
+                let pathTarget: Unit | undefined;
+                if (newUnit.position.x <= 0) { // Left lane
+                    pathTarget = leftTower || kingTower;
+                } else { // Right lane
+                    pathTarget = rightTower || kingTower;
+                }
+                
+                if (pathTarget) {
+                    const unitPos = new THREE.Vector3(newUnit.position.x, newUnit.position.y, newUnit.position.z);
+                    const targetPos = new THREE.Vector3(pathTarget.position.x, pathTarget.position.y, pathTarget.position.z);
+                    const distance = unitPos.distanceTo(targetPos);
+
+                    if (distance > newUnit.attackRange) {
+                        const direction = targetPos.clone().sub(unitPos).normalize();
+                        newUnit.position.x += direction.x * newUnit.speed;
+                        newUnit.position.z += direction.z * newUnit.speed;
+                    } else if (newUnit.cooldown === 0) {
+                      newUnit.targetId = pathTarget.id;
+                      const targetInMap = unitMap.get(pathTarget.id);
+                      if (targetInMap) {
+                        targetInMap.hp -= newUnit.attackDamage;
+                      }
+                      newUnit.cooldown = newUnit.attackSpeed;
+                    }
                 }
               }
               return newUnit;

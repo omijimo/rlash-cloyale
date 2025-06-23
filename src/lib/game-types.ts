@@ -18,6 +18,7 @@ export interface UnitDefinition {
   maxHp: number;
   attackDamage: number;
   attackRange: number;
+  detectionRange: number;
   attackSpeed: number; // in ticks
   speed: number;
   yOffset: number;
@@ -39,6 +40,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
     maxHp: 100,
     attackDamage: 10,
     attackRange: 1.5,
+    detectionRange: 3,
     attackSpeed: 10, // 1 attack per second
     speed: 0.05,
     yOffset: 0.5,
@@ -47,7 +49,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
     type: 'archer',
     maxHp: 40,
     attackDamage: 5,
-    attackRange: 5,
+    attackRange: 4,
+    detectionRange: 6,
     attackSpeed: 8, // a bit faster
     speed: 0.06,
     yOffset: 0.5,
@@ -57,6 +60,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
     maxHp: 500,
     attackDamage: 15,
     attackRange: 8,
+    detectionRange: 8,
     attackSpeed: 8, 
     speed: 0, // Towers don't move
     yOffset: 1.5, // Taller
