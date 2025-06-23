@@ -39,6 +39,9 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
   useEffect(() => {
     if (!mountRef.current) return;
     const currentMount = mountRef.current;
+    
+    // --- Scene setup (only once) ---
+    if (rendererRef.current) return;
 
     cameraRef.current.aspect = currentMount.clientWidth / currentMount.clientHeight;
     cameraRef.current.updateProjectionMatrix();
@@ -101,8 +104,8 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
         }
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('click', handleClick);
+    currentMount.addEventListener('mousemove', handleMouseMove);
+    currentMount.addEventListener('click', handleClick);
 
     // --- Resize Listener ---
     const handleResize = () => {
@@ -125,7 +128,8 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
         const intersects = raycasterRef.current.intersectObject(planeRef.current!);
         if (intersects.length > 0) {
           const point = intersects[0].point;
-          if(point.z <= 0) { // Only show on player's side
+          // Only show on player's side (z > 0)
+          if(point.z > 0) { 
             const definition = UNIT_DEFINITIONS[selectedUnitTypeRef.current];
             placementIndicatorRef.current!.position.set(point.x, definition.yOffset, point.z);
             placementIndicatorRef.current!.visible = true;
@@ -147,17 +151,20 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
       
       // Update screen positions for HUD
       const screenPositions = new Map<number, ScreenPosition>();
-      unitMeshesRef.current.forEach((mesh, id) => {
-        const unitData = unitsRef.current.find(u => u.id === id);
-        if (unitData) {
+      const visibleUnits = unitsRef.current.filter(u => u.hp > 0);
+      visibleUnits.forEach(unit => {
+        const mesh = unitMeshesRef.current.get(unit.id);
+        if (mesh) {
             const vector = new THREE.Vector3();
-            mesh.getWorldPosition(vector);
+            // Use mesh position for smoother HUD tracking
+            vector.copy(mesh.position);
+            vector.y += 1; // Raise HUD above the unit
             vector.project(camera);
 
             if (mountRef.current) {
                 const x = (vector.x *  .5 + .5) * mountRef.current.clientWidth;
                 const y = (vector.y * -.5 + .5) * mountRef.current.clientHeight;
-                screenPositions.set(id, { x, y: y - 20}); // offset y for health bar
+                screenPositions.set(unit.id, { x, y: y - 20}); // offset y for health bar
             }
         }
       });
@@ -171,12 +178,15 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('click', handleClick);
-      if (currentMount && renderer.domElement) {
-        currentMount.removeChild(renderer.domElement);
+      if (currentMount) {
+        currentMount.removeEventListener('mousemove', handleMouseMove);
+        currentMount.removeEventListener('click', handleClick);
+        if (renderer.domElement) {
+          currentMount.removeChild(renderer.domElement);
+        }
       }
       renderer.dispose();
+      rendererRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -199,12 +209,16 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
       }
     });
 
-    // Remove old meshes
+    // Remove old meshes for units that are gone (hp <= 0)
     currentMeshes.forEach((mesh, id) => {
       if (!unitIds.has(id)) {
         scene.remove(mesh);
         mesh.geometry.dispose();
-        (mesh.material as THREE.Material).dispose();
+        if (mesh.material instanceof THREE.Material) {
+          mesh.material.dispose();
+        } else if (Array.isArray(mesh.material)) {
+          mesh.material.forEach(m => m.dispose());
+        }
         currentMeshes.delete(id);
       }
     });
