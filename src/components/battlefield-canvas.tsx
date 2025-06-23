@@ -58,7 +58,7 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
 
     // --- Camera ---
     const camera = cameraRef.current;
-    camera.position.set(0, 15, 12);
+    camera.position.set(0, 15, 15);
     camera.lookAt(0, 0, 0);
 
     // --- Lights ---
@@ -128,7 +128,6 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
         const intersects = raycasterRef.current.intersectObject(planeRef.current!);
         if (intersects.length > 0) {
           const point = intersects[0].point;
-          // Only show on player's side (z > 0)
           if(point.z > 0) { 
             const definition = UNIT_DEFINITIONS[selectedUnitTypeRef.current];
             placementIndicatorRef.current!.position.set(point.x, definition.yOffset, point.z);
@@ -156,15 +155,18 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
         const mesh = unitMeshesRef.current.get(unit.id);
         if (mesh) {
             const vector = new THREE.Vector3();
-            // Use mesh position for smoother HUD tracking
             vector.copy(mesh.position);
-            vector.y += 1; // Raise HUD above the unit
+            
+            const hudYOffset = unit.isKingTower ? 2.5 : unit.type === 'tower' ? 2 : 1;
+            vector.y += hudYOffset;
             vector.project(camera);
 
             if (mountRef.current) {
                 const x = (vector.x *  .5 + .5) * mountRef.current.clientWidth;
                 const y = (vector.y * -.5 + .5) * mountRef.current.clientHeight;
-                screenPositions.set(unit.id, { x, y: y - 20}); // offset y for health bar
+                
+                const screenYOffset = unit.isKingTower ? 40 : unit.type === 'tower' ? 30 : 20;
+                screenPositions.set(unit.id, { x, y: y - screenYOffset});
             }
         }
       });
@@ -199,7 +201,23 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
     // Add or update meshes
     units.forEach(unit => {
       if (!currentMeshes.has(unit.id)) {
-        const geometry = unit.type === 'warrior' ? new THREE.BoxGeometry(1, 1, 1) : new THREE.CylinderGeometry(0.4, 0.4, 1.2, 16);
+        let geometry: THREE.BufferGeometry;
+        switch (unit.type) {
+          case 'tower':
+            geometry = unit.isKingTower 
+              ? new THREE.BoxGeometry(2, 4, 2) 
+              : new THREE.BoxGeometry(1.5, 3, 1.5);
+            break;
+          case 'warrior':
+            geometry = new THREE.BoxGeometry(1, 1, 1);
+            break;
+          case 'archer':
+            geometry = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 16);
+            break;
+          default:
+            geometry = new THREE.BoxGeometry(1, 1, 1);
+        }
+        
         const color = unit.team === 'player' ? '#3F51B5' : '#D32F2F';
         const material = new THREE.MeshStandardMaterial({ color });
         const mesh = new THREE.Mesh(geometry, material);

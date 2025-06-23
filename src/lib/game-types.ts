@@ -1,4 +1,4 @@
-export type UnitType = 'warrior' | 'archer';
+export type UnitType = 'warrior' | 'archer' | 'tower';
 export type Team = 'player' | 'enemy';
 export type GameState = 'deployment' | 'battle' | 'end';
 
@@ -30,6 +30,7 @@ export interface Unit extends UnitDefinition {
   hp: number;
   targetId: number | null;
   cooldown: number;
+  isKingTower?: boolean;
 }
 
 export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
@@ -50,5 +51,14 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
     attackSpeed: 8, // a bit faster
     speed: 0.06,
     yOffset: 0.5,
+  },
+  tower: {
+    type: 'tower',
+    maxHp: 500,
+    attackDamage: 15,
+    attackRange: 8,
+    attackSpeed: 20, // Slower attack speed
+    speed: 0, // Towers don't move
+    yOffset: 1.5, // Taller
   },
 };
