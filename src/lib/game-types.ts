@@ -58,9 +58,9 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
   tower: {
     type: 'tower',
     maxHp: 500,
-    attackDamage: 15,
-    attackRange: 8,
-    detectionRange: 8,
+    attackDamage: 10,
+    attackRange: 7,
+    detectionRange: 7,
     attackSpeed: 8, 
     speed: 0, // Towers don't move
     yOffset: 1.5, // Taller
