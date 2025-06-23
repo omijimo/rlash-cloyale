@@ -1,7 +1,6 @@
 "use client";
 
-import { Swords, Crosshair, Play } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Swords, Crosshair } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { UnitType, GameState } from '@/lib/game-types';
@@ -23,10 +22,10 @@ export function DeploymentPanel({ selectedUnitType, onSelectUnit, gameState }: D
   }
 
   return (
-    <div className="bg-card/80 backdrop-blur-sm border-t p-4 shadow-lg">
+    <div className="bg-background/80 backdrop-blur-sm border-t p-4 shadow-lg">
       <div className="container mx-auto flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-headline font-semibold mb-2 text-foreground">Deploy Your Units</h2>
+          <h2 className="text-lg font-headline font-semibold mb-2 text-foreground">Summon Your Warriors</h2>
           <div className="flex gap-4">
             {unitTypes.map(unit => (
               <Card 

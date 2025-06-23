@@ -54,7 +54,7 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
     const renderer = rendererRef.current;
 
     const scene = sceneRef.current;
-    scene.background = new THREE.Color('#F0F0F0');
+    scene.background = new THREE.Color('#1C1917');
 
     // --- Camera ---
     const camera = cameraRef.current;
@@ -70,7 +70,7 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
 
     // --- Battlefield ---
     const planeGeometry = new THREE.PlaneGeometry(20, 30);
-    const planeMaterial = new THREE.MeshStandardMaterial({ color: '#8BC34A' });
+    const planeMaterial = new THREE.MeshStandardMaterial({ color: '#798C4D' });
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
     plane.rotation.x = -Math.PI / 2;
     scene.add(plane);

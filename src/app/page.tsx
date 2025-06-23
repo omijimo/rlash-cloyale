@@ -326,11 +326,11 @@ export default function Home() {
   const getEndGameMessage = () => {
     switch (winner) {
       case 'player':
-        return { title: 'Victory!', description: 'You have vanquished the enemy forces.' };
+        return { title: 'Glorious Victory!', description: 'You have crushed the enemy and claimed the battlefield.' };
       case 'enemy':
-        return { title: 'Defeat!', description: 'Your forces have been overwhelmed.' };
+        return { title: 'Valiant Defeat!', description: 'Your forces have been routed. Live to fight another day.' };
       case 'draw':
-        return { title: 'Draw!', description: 'The battle ended in a stalemate.' };
+        return { title: 'Stalemate!', description: 'The horns of retreat have sounded. Neither side claims victory.' };
       default:
         return { title: '', description: '' };
     }
@@ -342,14 +342,14 @@ export default function Home() {
     <div className="flex flex-col h-screen w-screen bg-background font-body">
       <div className="relative flex-grow">
         {gameState === 'battle' && (
-           <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-6 py-2 rounded-lg text-4xl font-bold z-10">
+           <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-6 py-2 rounded-lg text-4xl font-bold z-10 font-headline">
             {Math.floor(timeLeft / 60)}:{('0' + (timeLeft % 60)).slice(-2)}
           </div>
         )}
         {gameState === 'end' && (
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col justify-center items-center z-20">
-            <div className="bg-card p-8 rounded-lg shadow-2xl text-center">
-              <h2 className="text-5xl font-bold mb-4 text-foreground">
+            <div className="bg-card p-8 rounded-lg shadow-2xl text-center border-2 border-border">
+              <h2 className="text-5xl font-bold mb-4 text-foreground font-headline">
                 {title}
               </h2>
               <p className="text-muted-foreground text-lg mb-8">
@@ -357,7 +357,7 @@ export default function Home() {
               </p>
               <Button size="lg" onClick={handleRestart} className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-lg">
                 <RefreshCw className="mr-2 h-6 w-6" />
-                Play Again
+                To Battle!
               </Button>
             </div>
           </div>
