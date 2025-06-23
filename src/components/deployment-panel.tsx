@@ -9,7 +9,6 @@ import type { UnitType, GameState } from '@/lib/game-types';
 interface DeploymentPanelProps {
   selectedUnitType: UnitType | null;
   onSelectUnit: (type: UnitType | null) => void;
-  onStartBattle: () => void;
   gameState: GameState;
 }
 
@@ -18,7 +17,7 @@ const unitTypes: { type: UnitType, name: string, icon: React.ReactNode }[] = [
   { type: 'archer', name: 'Archer', icon: <Crosshair className="w-8 h-8" /> },
 ];
 
-export function DeploymentPanel({ selectedUnitType, onSelectUnit, onStartBattle, gameState }: DeploymentPanelProps) {
+export function DeploymentPanel({ selectedUnitType, onSelectUnit, gameState }: DeploymentPanelProps) {
   if (gameState === 'end') {
     return null;
   }
@@ -46,12 +45,6 @@ export function DeploymentPanel({ selectedUnitType, onSelectUnit, onStartBattle,
             ))}
           </div>
         </div>
-        {gameState === 'deployment' && (
-            <Button size="lg" onClick={onStartBattle} className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-lg">
-                <Play className="mr-2 h-6 w-6" />
-                Start Battle
-            </Button>
-        )}
       </div>
     </div>
   );

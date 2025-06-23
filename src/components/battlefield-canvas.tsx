@@ -99,7 +99,7 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
     };
     
     const handleClick = () => {
-        if(gameStateRef.current === 'deployment' && placementIndicatorRef.current?.visible) {
+        if((gameStateRef.current === 'deployment' || gameStateRef.current === 'battle') && placementIndicatorRef.current?.visible) {
             onDeployUnitRef.current(placementIndicatorRef.current.position);
         }
     };
@@ -123,7 +123,7 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
       animationFrameId = requestAnimationFrame(animate);
 
       // Update placement indicator
-      if (gameStateRef.current === 'deployment' && selectedUnitTypeRef.current) {
+      if ((gameStateRef.current === 'deployment' || gameStateRef.current === 'battle') && selectedUnitTypeRef.current) {
         raycasterRef.current.setFromCamera(mouseRef.current, camera);
         const intersects = raycasterRef.current.intersectObject(planeRef.current!);
         if (intersects.length > 0) {

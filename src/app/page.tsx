@@ -51,6 +51,7 @@ export default function Home() {
   const handleDeployUnit = useCallback((point: THREE.Vector3) => {
     if (gameState === 'end' || !selectedUnitType) return;
     
+    // Player can only deploy on their side of the field
     if (point.z < 0) return;
 
     const definition = UNIT_DEFINITIONS[selectedUnitType];
@@ -67,22 +68,22 @@ export default function Home() {
       cooldown: 0,
     };
 
-    setUnits(prevUnits => [...prevUnits, newUnit]);
-    setNextId(prevId => prevId + 1);
+    if (gameState === 'deployment') {
+        // This is the first deployment, start battle and add enemies
+        setGameState('battle');
+        const enemyUnits: Unit[] = [
+            { id: nextId + 1, team: 'enemy', type: 'warrior', position: { x: -2, y: UNIT_DEFINITIONS.warrior.yOffset, z: -8 }, hp: 100, ...UNIT_DEFINITIONS.warrior, targetId: null, cooldown: 0 },
+            { id: nextId + 2, team: 'enemy', type: 'warrior', position: { x: 2, y: UNIT_DEFINITIONS.warrior.yOffset, z: -8 }, hp: 100, ...UNIT_DEFINITIONS.warrior, targetId: null, cooldown: 0 },
+            { id: nextId + 3, team: 'enemy', type: 'archer', position: { x: 0, y: UNIT_DEFINITIONS.archer.yOffset, z: -10 }, hp: 50, ...UNIT_DEFINITIONS.archer, targetId: null, cooldown: 0 },
+        ];
+        setUnits(prev => [...prev, newUnit, ...enemyUnits]);
+        setNextId(prevId => prevId + 1 + enemyUnits.length);
+    } else {
+        // Battle already started, just add the new unit
+        setUnits(prevUnits => [...prevUnits, newUnit]);
+        setNextId(prevId => prevId + 1);
+    }
   }, [gameState, selectedUnitType, nextId]);
-  
-  const handleStartBattle = () => {
-    if (units.filter(u => u.team === 'player' && u.type !== 'tower').length === 0) return;
-
-    setGameState('battle');
-    const enemyUnits: Unit[] = [
-      { id: nextId, team: 'enemy', type: 'warrior', position: { x: -2, y: UNIT_DEFINITIONS.warrior.yOffset, z: -8 }, hp: 100, ...UNIT_DEFINITIONS.warrior, targetId: null, cooldown: 0 },
-      { id: nextId + 1, team: 'enemy', type: 'warrior', position: { x: 2, y: UNIT_DEFINITIONS.warrior.yOffset, z: -8 }, hp: 100, ...UNIT_DEFINITIONS.warrior, targetId: null, cooldown: 0 },
-      { id: nextId + 2, team: 'enemy', type: 'archer', position: { x: 0, y: UNIT_DEFINITIONS.archer.yOffset, z: -10 }, hp: 50, ...UNIT_DEFINITIONS.archer, targetId: null, cooldown: 0 },
-    ];
-    setUnits(prev => [...prev, ...enemyUnits]);
-    setNextId(prevId => prevId + enemyUnits.length);
-  };
 
   const handleRestart = () => {
     initializeState();
@@ -277,7 +278,6 @@ export default function Home() {
       <DeploymentPanel 
         selectedUnitType={selectedUnitType}
         onSelectUnit={setSelectedUnitType}
-        onStartBattle={handleStartBattle}
         gameState={gameState}
       />
     </div>
