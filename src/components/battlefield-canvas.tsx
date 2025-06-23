@@ -17,21 +17,37 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef(new THREE.Scene());
-  const cameraRef = useRef(new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000));
+  const cameraRef = useRef(new THREE.PerspectiveCamera(75, 1, 0.1, 1000));
   const planeRef = useRef<THREE.Mesh | null>(null);
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const unitMeshesRef = useRef(new Map<number, THREE.Mesh>());
   const placementIndicatorRef = useRef<THREE.Mesh | null>(null);
 
+  const unitsRef = useRef(units);
+  const gameStateRef = useRef(gameState);
+  const selectedUnitTypeRef = useRef(selectedUnitType);
+  const onDeployUnitRef = useRef(onDeployUnit);
+  const onUnitPositionsUpdateRef = useRef(onUnitPositionsUpdate);
+
+  useEffect(() => { unitsRef.current = units; }, [units]);
+  useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
+  useEffect(() => { selectedUnitTypeRef.current = selectedUnitType; }, [selectedUnitType]);
+  useEffect(() => { onDeployUnitRef.current = onDeployUnit; }, [onDeployUnit]);
+  useEffect(() => { onUnitPositionsUpdateRef.current = onUnitPositionsUpdate; }, [onUnitPositionsUpdate]);
+
   useEffect(() => {
     if (!mountRef.current) return;
+    const currentMount = mountRef.current;
+
+    cameraRef.current.aspect = currentMount.clientWidth / currentMount.clientHeight;
+    cameraRef.current.updateProjectionMatrix();
 
     // --- Renderer ---
     rendererRef.current = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    rendererRef.current.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+    rendererRef.current.setSize(currentMount.clientWidth, currentMount.clientHeight);
     rendererRef.current.setPixelRatio(window.devicePixelRatio);
-    mountRef.current.appendChild(rendererRef.current.domElement);
+    currentMount.appendChild(rendererRef.current.domElement);
     const renderer = rendererRef.current;
 
     const scene = sceneRef.current;
@@ -80,8 +96,8 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
     };
     
     const handleClick = () => {
-        if(gameState === 'deployment' && placementIndicatorRef.current?.visible) {
-            onDeployUnit(placementIndicatorRef.current.position);
+        if(gameStateRef.current === 'deployment' && placementIndicatorRef.current?.visible) {
+            onDeployUnitRef.current(placementIndicatorRef.current.position);
         }
     };
 
@@ -99,17 +115,18 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
     window.addEventListener('resize', handleResize);
     
     // --- Animation Loop ---
+    let animationFrameId: number;
     const animate = () => {
-      requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
 
       // Update placement indicator
-      if (gameState === 'deployment' && selectedUnitType) {
+      if (gameStateRef.current === 'deployment' && selectedUnitTypeRef.current) {
         raycasterRef.current.setFromCamera(mouseRef.current, camera);
         const intersects = raycasterRef.current.intersectObject(planeRef.current!);
         if (intersects.length > 0) {
           const point = intersects[0].point;
           if(point.z <= 0) { // Only show on player's side
-            const definition = UNIT_DEFINITIONS[selectedUnitType];
+            const definition = UNIT_DEFINITIONS[selectedUnitTypeRef.current];
             placementIndicatorRef.current!.position.set(point.x, definition.yOffset, point.z);
             placementIndicatorRef.current!.visible = true;
           } else {
@@ -122,7 +139,7 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
 
       // Smoothly move unit meshes
       unitMeshesRef.current.forEach((mesh, id) => {
-        const unitData = units.find(u => u.id === id);
+        const unitData = unitsRef.current.find(u => u.id === id);
         if (unitData) {
           mesh.position.lerp(new THREE.Vector3(unitData.position.x, unitData.position.y, unitData.position.z), 0.2);
         }
@@ -131,7 +148,7 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
       // Update screen positions for HUD
       const screenPositions = new Map<number, ScreenPosition>();
       unitMeshesRef.current.forEach((mesh, id) => {
-        const unitData = units.find(u => u.id === id);
+        const unitData = unitsRef.current.find(u => u.id === id);
         if (unitData) {
             const vector = new THREE.Vector3();
             mesh.getWorldPosition(vector);
@@ -144,7 +161,7 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
             }
         }
       });
-      onUnitPositionsUpdate(screenPositions);
+      onUnitPositionsUpdateRef.current(screenPositions);
 
       renderer.render(scene, camera);
     };
@@ -152,13 +169,17 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
     animate();
 
     return () => {
+      cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('click', handleClick);
-      mountRef.current?.removeChild(renderer.domElement);
+      if (currentMount && renderer.domElement) {
+        currentMount.removeChild(renderer.domElement);
+      }
+      renderer.dispose();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState, selectedUnitType, onDeployUnit]);
+  }, []);
 
   useEffect(() => {
     const scene = sceneRef.current;
