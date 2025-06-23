@@ -57,7 +57,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
     maxHp: 500,
     attackDamage: 15,
     attackRange: 8,
-    attackSpeed: 20, // Slower attack speed
+    attackSpeed: 8, 
     speed: 0, // Towers don't move
     yOffset: 1.5, // Taller
   },

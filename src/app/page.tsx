@@ -49,7 +49,7 @@ export default function Home() {
   }, [initializeState]);
   
   const handleDeployUnit = useCallback((point: THREE.Vector3) => {
-    if (gameState !== 'deployment' || !selectedUnitType) return;
+    if (gameState === 'end' || !selectedUnitType) return;
     
     if (point.z < 0) return;
 

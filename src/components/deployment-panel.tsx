@@ -19,7 +19,7 @@ const unitTypes: { type: UnitType, name: string, icon: React.ReactNode }[] = [
 ];
 
 export function DeploymentPanel({ selectedUnitType, onSelectUnit, onStartBattle, gameState }: DeploymentPanelProps) {
-  if (gameState !== 'deployment') {
+  if (gameState === 'end') {
     return null;
   }
 
@@ -46,10 +46,12 @@ export function DeploymentPanel({ selectedUnitType, onSelectUnit, onStartBattle,
             ))}
           </div>
         </div>
-        <Button size="lg" onClick={onStartBattle} className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-lg">
-          <Play className="mr-2 h-6 w-6" />
-          Start Battle
-        </Button>
+        {gameState === 'deployment' && (
+            <Button size="lg" onClick={onStartBattle} className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-lg">
+                <Play className="mr-2 h-6 w-6" />
+                Start Battle
+            </Button>
+        )}
       </div>
     </div>
   );
