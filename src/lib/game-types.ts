@@ -1,4 +1,4 @@
-export type UnitType = 'knight' | 'archer' | 'tower';
+export type UnitType = 'knight' | 'archer' | 'tower' | 'hogRider';
 export type Team = 'player' | 'enemy';
 export type GameState = 'deployment' | 'battle' | 'end';
 
@@ -57,12 +57,22 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
   },
   tower: {
     type: 'tower',
-    maxHp: 500,
-    attackDamage: 10,
-    attackRange: 7,
-    detectionRange: 7,
+    maxHp: 350,
+    attackDamage: 8,
+    attackRange: 6,
+    detectionRange: 6,
     attackSpeed: 8, 
     speed: 0, // Towers don't move
     yOffset: 1.5, // Taller
+  },
+  hogRider: {
+    type: 'hogRider',
+    maxHp: 250,
+    attackDamage: 25,
+    attackRange: 1.5,
+    detectionRange: 10,
+    attackSpeed: 12,
+    speed: 0.08,
+    yOffset: 0.5,
   },
 };

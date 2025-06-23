@@ -214,6 +214,9 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
           case 'archer':
             geometry = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 16);
             break;
+          case 'hogRider':
+            geometry = new THREE.BoxGeometry(1.2, 0.8, 1.2);
+            break;
           default:
             geometry = new THREE.BoxGeometry(1, 1, 1);
         }

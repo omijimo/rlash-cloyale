@@ -175,7 +175,7 @@ export default function Home() {
             if (enemyDeploymentCounterRef.current >= 150) { // Every 15 seconds
                 enemyDeploymentCounterRef.current = 0;
                 let latestId = newUnits.reduce((maxId, unit) => Math.max(unit.id, maxId), 0);
-                const unitTypesToDeploy: UnitType[] = ['knight', 'archer'];
+                const unitTypesToDeploy: UnitType[] = ['knight', 'archer', 'hogRider'];
                 const typeToDeploy = unitTypesToDeploy[Math.floor(Math.random() * unitTypesToDeploy.length)];
                 
                 const spawnX = (Math.random() * 10) - 5;
@@ -224,7 +224,7 @@ export default function Home() {
               let newUnit = { ...unit };
               if (newUnit.cooldown > 0) newUnit.cooldown--;
 
-              const potentialAttackTargets = newUnit.team === 'player' ? enemyUnits : playerUnits;
+              const allEnemyUnits = newUnit.team === 'player' ? enemyUnits : playerUnits;
               let currentTarget: Unit | undefined;
 
               // 1. Check if the unit has a valid, existing target
@@ -232,12 +232,17 @@ export default function Home() {
                 const targetFromMap = unitMap.get(newUnit.targetId);
                 // Check if target is alive (in unitMap) and in detection range
                 if (targetFromMap) {
-                  const unitPos = new THREE.Vector3(newUnit.position.x, newUnit.position.y, newUnit.position.z);
-                  const targetPos = new THREE.Vector3(targetFromMap.position.x, targetFromMap.position.y, targetFromMap.position.z);
-                  if (unitPos.distanceTo(targetPos) <= newUnit.detectionRange) {
-                    currentTarget = targetFromMap;
+                  // Hog Riders should not have non-tower targets
+                  if (newUnit.type === 'hogRider' && targetFromMap.type !== 'tower') {
+                     newUnit.targetId = null;
                   } else {
-                    newUnit.targetId = null; // Target is out of range
+                    const unitPos = new THREE.Vector3(newUnit.position.x, newUnit.position.y, newUnit.position.z);
+                    const targetPos = new THREE.Vector3(targetFromMap.position.x, targetFromMap.position.y, targetFromMap.position.z);
+                    if (unitPos.distanceTo(targetPos) <= newUnit.detectionRange) {
+                      currentTarget = targetFromMap;
+                    } else {
+                      newUnit.targetId = null; // Target is out of range
+                    }
                   }
                 } else {
                   newUnit.targetId = null; // Target is dead
@@ -246,6 +251,10 @@ export default function Home() {
 
               // 2. If no valid target, find a new one
               if (!currentTarget) {
+                const potentialAttackTargets = newUnit.type === 'hogRider'
+                  ? allEnemyUnits.filter(u => u.type === 'tower')
+                  : allEnemyUnits;
+                
                 const closestTarget = findClosestTargetInRange(newUnit, potentialAttackTargets, newUnit.detectionRange);
                 if (closestTarget) {
                   currentTarget = closestTarget;
@@ -278,7 +287,7 @@ export default function Home() {
                 newUnit.targetId = null;
                 if (newUnit.type === 'tower') return newUnit; 
 
-                const targetTowers = newUnit.team === 'player' ? enemyUnits.filter(u => u.type === 'tower') : playerUnits.filter(u => u.type === 'tower');
+                const targetTowers = allEnemyUnits.filter(u => u.type === 'tower');
                 const leftTower = targetTowers.find(t => t.position.x < 0 && !t.isKingTower);
                 const rightTower = targetTowers.find(t => t.position.x > 0 && !t.isKingTower);
                 const kingTower = targetTowers.find(t => t.isKingTower);

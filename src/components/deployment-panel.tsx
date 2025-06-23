@@ -1,6 +1,6 @@
 "use client";
 
-import { Swords, Crosshair } from 'lucide-react';
+import { Swords, Crosshair, Hammer } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { UnitType, GameState } from '@/lib/game-types';
@@ -14,6 +14,7 @@ interface DeploymentPanelProps {
 const unitTypes: { type: UnitType, name: string, icon: React.ReactNode }[] = [
   { type: 'knight', name: 'Knight', icon: <Swords className="w-8 h-8" /> },
   { type: 'archer', name: 'Archers', icon: <Crosshair className="w-8 h-8" /> },
+  { type: 'hogRider', name: 'Hog Rider', icon: <Hammer className="w-8 h-8" /> },
 ];
 
 export function DeploymentPanel({ selectedUnitType, onSelectUnit, gameState }: DeploymentPanelProps) {
