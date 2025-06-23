@@ -175,7 +175,7 @@ export default function Home() {
             if (enemyDeploymentCounterRef.current >= 150) { // Every 15 seconds
                 enemyDeploymentCounterRef.current = 0;
                 let latestId = newUnits.reduce((maxId, unit) => Math.max(unit.id, maxId), 0);
-                const unitTypesToDeploy: UnitType[] = ['knight', 'archer', 'hogRider'];
+                const unitTypesToDeploy: UnitType[] = ['knight', 'archer', 'hogRider', 'cannon'];
                 const typeToDeploy = unitTypesToDeploy[Math.floor(Math.random() * unitTypesToDeploy.length)];
                 
                 const spawnX = (Math.random() * 10) - 5;
@@ -222,6 +222,11 @@ export default function Home() {
 
             const updatedUnits = aliveUnits.map(unit => {
               let newUnit = { ...unit };
+
+              if (newUnit.healthDecay) {
+                newUnit.hp -= newUnit.healthDecay / 10;
+              }
+
               if (newUnit.cooldown > 0) newUnit.cooldown--;
 
               const allEnemyUnits = newUnit.team === 'player' ? enemyUnits : playerUnits;
@@ -232,8 +237,8 @@ export default function Home() {
                 const targetFromMap = unitMap.get(newUnit.targetId);
                 // Check if target is alive (in unitMap) and in detection range
                 if (targetFromMap) {
-                  // Hog Riders should not have non-tower targets
-                  if (newUnit.type === 'hogRider' && targetFromMap.type !== 'tower') {
+                  // Hog Riders should not have non-building targets
+                  if (newUnit.type === 'hogRider' && !targetFromMap.isBuilding) {
                      newUnit.targetId = null;
                   } else {
                     const unitPos = new THREE.Vector3(newUnit.position.x, newUnit.position.y, newUnit.position.z);
@@ -252,7 +257,7 @@ export default function Home() {
               // 2. If no valid target, find a new one
               if (!currentTarget) {
                 const potentialAttackTargets = newUnit.type === 'hogRider'
-                  ? allEnemyUnits.filter(u => u.type === 'tower')
+                  ? allEnemyUnits.filter(u => u.isBuilding)
                   : allEnemyUnits;
                 
                 const closestTarget = findClosestTargetInRange(newUnit, potentialAttackTargets, newUnit.detectionRange);
@@ -270,7 +275,7 @@ export default function Home() {
 
                 if (distance > newUnit.attackRange) {
                   // Move towards target
-                  if (newUnit.type !== 'tower') {
+                  if (!newUnit.isBuilding) {
                     const direction = targetPos.clone().sub(unitPos).normalize();
                     newUnit.position.x += direction.x * newUnit.speed;
                     newUnit.position.z += direction.z * newUnit.speed;
@@ -285,18 +290,27 @@ export default function Home() {
                 }
               } else { // No enemy in detection range, follow path
                 newUnit.targetId = null;
-                if (newUnit.type === 'tower') return newUnit; 
+                if (newUnit.isBuilding) return newUnit; 
 
-                const targetTowers = allEnemyUnits.filter(u => u.type === 'tower');
-                const leftTower = targetTowers.find(t => t.position.x < 0 && !t.isKingTower);
-                const rightTower = targetTowers.find(t => t.position.x > 0 && !t.isKingTower);
-                const kingTower = targetTowers.find(t => t.isKingTower);
+                const targetBuildings = allEnemyUnits.filter(u => u.isBuilding);
+                let pathTarget: Unit | null = null;
+                
+                if (newUnit.type === 'hogRider') {
+                  pathTarget = findClosestTargetInRange(newUnit, targetBuildings, Infinity);
+                } else {
+                  const kingTower = targetBuildings.find(t => t.isKingTower);
+                  let laneBuildings: Unit[];
+                  if (newUnit.position.x <= 0) { // Left lane
+                      laneBuildings = targetBuildings.filter(b => b.position.x <= 0 && !b.isKingTower);
+                  } else { // Right lane
+                      laneBuildings = targetBuildings.filter(b => b.position.x > 0 && !b.isKingTower);
+                  }
 
-                let pathTarget: Unit | undefined;
-                if (newUnit.position.x <= 0) { // Left lane
-                    pathTarget = leftTower || kingTower;
-                } else { // Right lane
-                    pathTarget = rightTower || kingTower;
+                  if(laneBuildings.length > 0) {
+                      pathTarget = findClosestTargetInRange(newUnit, laneBuildings, Infinity);
+                  } else {
+                      pathTarget = kingTower || null;
+                  }
                 }
                 
                 if (pathTarget) {
@@ -382,6 +396,7 @@ export default function Home() {
           {units.map(unit => {
             const pos = unitScreenPositions.get(unit.id);
             if (!pos) return null;
+            const yOffset = unit.isBuilding ? (unit.isKingTower ? 40 : 30) : 20;
             return (
               <div key={unit.id} className="health-bar" style={{ left: `${pos.x}px`, top: `${pos.y}px` }}>
                 <div className="health-bar-inner" style={{ width: `${(unit.hp / unit.maxHp) * 100}%` }}></div>

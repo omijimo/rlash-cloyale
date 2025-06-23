@@ -1,4 +1,4 @@
-export type UnitType = 'knight' | 'archer' | 'tower' | 'hogRider';
+export type UnitType = 'knight' | 'archer' | 'tower' | 'hogRider' | 'cannon';
 export type Team = 'player' | 'enemy';
 export type GameState = 'deployment' | 'battle' | 'end';
 
@@ -22,6 +22,8 @@ export interface UnitDefinition {
   attackSpeed: number; // in ticks
   speed: number;
   yOffset: number;
+  isBuilding?: boolean;
+  healthDecay?: number; // HP loss per 100 ticks (1 second)
 }
 
 export interface Unit extends UnitDefinition {
@@ -47,23 +49,24 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
   },
   archer: {
     type: 'archer',
-    maxHp: 40,
-    attackDamage: 5,
+    maxHp: 30,
+    attackDamage: 4,
     attackRange: 4,
     detectionRange: 6,
     attackSpeed: 8, // a bit faster
     speed: 0.06,
-    yOffset: 0.5,
+    yOffset: 0.6,
   },
   tower: {
     type: 'tower',
-    maxHp: 350,
-    attackDamage: 8,
-    attackRange: 6,
-    detectionRange: 6,
+    maxHp: 250,
+    attackDamage: 6,
+    attackRange: 5,
+    detectionRange: 5,
     attackSpeed: 8, 
     speed: 0, // Towers don't move
     yOffset: 1.5, // Taller
+    isBuilding: true,
   },
   hogRider: {
     type: 'hogRider',
@@ -73,6 +76,18 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
     detectionRange: 10,
     attackSpeed: 12,
     speed: 0.08,
-    yOffset: 0.5,
+    yOffset: 0.4,
+  },
+  cannon: {
+    type: 'cannon',
+    maxHp: 200,
+    attackDamage: 15,
+    attackRange: 7,
+    detectionRange: 7,
+    attackSpeed: 15, // Slower attack speed than tower
+    speed: 0,
+    yOffset: 0.3,
+    isBuilding: true,
+    healthDecay: 2, // 2 hp per second (2 / 10 ticks per second)
   },
 };
