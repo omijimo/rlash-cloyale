@@ -225,12 +225,38 @@ export default function Home() {
               if (newUnit.cooldown > 0) newUnit.cooldown--;
 
               const potentialAttackTargets = newUnit.team === 'player' ? enemyUnits : playerUnits;
-              let attackTarget = findClosestTargetInRange(newUnit, potentialAttackTargets, newUnit.detectionRange);
+              let currentTarget: Unit | undefined;
 
-              if (attackTarget) { // An enemy is within detection range
-                newUnit.targetId = attackTarget.id;
+              // 1. Check if the unit has a valid, existing target
+              if (newUnit.targetId !== null) {
+                const targetFromMap = unitMap.get(newUnit.targetId);
+                // Check if target is alive (in unitMap) and in detection range
+                if (targetFromMap) {
+                  const unitPos = new THREE.Vector3(newUnit.position.x, newUnit.position.y, newUnit.position.z);
+                  const targetPos = new THREE.Vector3(targetFromMap.position.x, targetFromMap.position.y, targetFromMap.position.z);
+                  if (unitPos.distanceTo(targetPos) <= newUnit.detectionRange) {
+                    currentTarget = targetFromMap;
+                  } else {
+                    newUnit.targetId = null; // Target is out of range
+                  }
+                } else {
+                  newUnit.targetId = null; // Target is dead
+                }
+              }
+
+              // 2. If no valid target, find a new one
+              if (!currentTarget) {
+                const closestTarget = findClosestTargetInRange(newUnit, potentialAttackTargets, newUnit.detectionRange);
+                if (closestTarget) {
+                  currentTarget = closestTarget;
+                  newUnit.targetId = closestTarget.id;
+                }
+              }
+              
+              // 3. Act: either engage the target or follow the path
+              if (currentTarget) {
                 const unitPos = new THREE.Vector3(newUnit.position.x, newUnit.position.y, newUnit.position.z);
-                const targetPos = new THREE.Vector3(attackTarget.position.x, attackTarget.position.y, attackTarget.position.z);
+                const targetPos = new THREE.Vector3(currentTarget.position.x, currentTarget.position.y, currentTarget.position.z);
                 const distance = unitPos.distanceTo(targetPos);
 
                 if (distance > newUnit.attackRange) {
@@ -242,7 +268,7 @@ export default function Home() {
                   }
                 } else if (newUnit.cooldown === 0) {
                   // Attack target
-                  const targetInMap = unitMap.get(attackTarget.id);
+                  const targetInMap = unitMap.get(currentTarget.id);
                   if (targetInMap) {
                     targetInMap.hp -= newUnit.attackDamage;
                   }
