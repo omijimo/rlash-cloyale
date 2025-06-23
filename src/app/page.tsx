@@ -54,34 +54,60 @@ export default function Home() {
     // Player can only deploy on their side of the field
     if (point.z < 0) return;
 
-    const definition = UNIT_DEFINITIONS[selectedUnitType];
-    if (!definition) return;
-    
-    const newId = Math.max(...units.map(u => u.id), 0) + 1;
+    let latestId = units.reduce((maxId, unit) => Math.max(unit.id, maxId), 0);
+    const newUnitsToDeploy: Unit[] = [];
 
-    const newUnit: Unit = {
-      id: newId,
-      team: 'player',
-      type: selectedUnitType,
-      position: { x: point.x, y: definition.yOffset, z: point.z },
-      hp: definition.maxHp,
-      ...definition,
-      targetId: null,
-      cooldown: 0,
-    };
+    if (selectedUnitType === 'archer') {
+        const definition = UNIT_DEFINITIONS.archer;
+        newUnitsToDeploy.push({
+            id: ++latestId,
+            team: 'player',
+            type: 'archer',
+            position: { x: point.x - 0.5, y: definition.yOffset, z: point.z },
+            hp: definition.maxHp,
+            ...definition,
+            targetId: null,
+            cooldown: 0,
+        });
+        newUnitsToDeploy.push({
+            id: ++latestId,
+            team: 'player',
+            type: 'archer',
+            position: { x: point.x + 0.5, y: definition.yOffset, z: point.z },
+            hp: definition.maxHp,
+            ...definition,
+            targetId: null,
+            cooldown: 0,
+        });
+    } else {
+        const definition = UNIT_DEFINITIONS[selectedUnitType];
+        if (!definition) return;
+        newUnitsToDeploy.push({
+            id: ++latestId,
+            team: 'player',
+            type: selectedUnitType,
+            position: { x: point.x, y: definition.yOffset, z: point.z },
+            hp: definition.maxHp,
+            ...definition,
+            targetId: null,
+            cooldown: 0,
+        });
+    }
+
+    if (newUnitsToDeploy.length === 0) return;
 
     if (gameState === 'deployment') {
         // This is the first deployment, start battle and add enemies
         setGameState('battle');
         const enemyUnits: Unit[] = [
-            { id: newId + 1, team: 'enemy', type: 'warrior', position: { x: -2, y: UNIT_DEFINITIONS.warrior.yOffset, z: -8 }, hp: 100, ...UNIT_DEFINITIONS.warrior, targetId: null, cooldown: 0 },
-            { id: newId + 2, team: 'enemy', type: 'warrior', position: { x: 2, y: UNIT_DEFINITIONS.warrior.yOffset, z: -8 }, hp: 100, ...UNIT_DEFINITIONS.warrior, targetId: null, cooldown: 0 },
-            { id: newId + 3, team: 'enemy', type: 'archer', position: { x: 0, y: UNIT_DEFINITIONS.archer.yOffset, z: -10 }, hp: 50, ...UNIT_DEFINITIONS.archer, targetId: null, cooldown: 0 },
+            { id: ++latestId, team: 'enemy', type: 'knight', position: { x: -2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, ...UNIT_DEFINITIONS.knight, targetId: null, cooldown: 0 },
+            { id: ++latestId, team: 'enemy', type: 'knight', position: { x: 2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, ...UNIT_DEFINITIONS.knight, targetId: null, cooldown: 0 },
+            { id: ++latestId, team: 'enemy', type: 'archer', position: { x: 0, y: UNIT_DEFINITIONS.archer.yOffset, z: -10 }, hp: UNIT_DEFINITIONS.archer.maxHp, ...UNIT_DEFINITIONS.archer, targetId: null, cooldown: 0 },
         ];
-        setUnits(prev => [...prev, newUnit, ...enemyUnits]);
+        setUnits(prev => [...prev, ...newUnitsToDeploy, ...enemyUnits]);
     } else {
-        // Battle already started, just add the new unit
-        setUnits(prevUnits => [...prevUnits, newUnit]);
+        // Battle already started, just add the new units
+        setUnits(prevUnits => [...prevUnits, ...newUnitsToDeploy]);
     }
   }, [gameState, selectedUnitType, units]);
 
@@ -153,7 +179,7 @@ export default function Home() {
                 enemyDeploymentCounterRef.current = 0;
 
                 const latestId = newUnits.reduce((maxId, unit) => Math.max(unit.id, maxId), 0);
-                const unitTypesToDeploy: UnitType[] = ['warrior', 'archer'];
+                const unitTypesToDeploy: UnitType[] = ['knight', 'archer'];
                 const typeToDeploy = unitTypesToDeploy[Math.floor(Math.random() * unitTypesToDeploy.length)];
                 const definition = UNIT_DEFINITIONS[typeToDeploy];
 

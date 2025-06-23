@@ -1,4 +1,4 @@
-export type UnitType = 'warrior' | 'archer' | 'tower';
+export type UnitType = 'knight' | 'archer' | 'tower';
 export type Team = 'player' | 'enemy';
 export type GameState = 'deployment' | 'battle' | 'end';
 
@@ -34,8 +34,8 @@ export interface Unit extends UnitDefinition {
 }
 
 export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
-  warrior: {
-    type: 'warrior',
+  knight: {
+    type: 'knight',
     maxHp: 100,
     attackDamage: 10,
     attackRange: 1.5,
@@ -45,8 +45,8 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
   },
   archer: {
     type: 'archer',
-    maxHp: 50,
-    attackDamage: 7,
+    maxHp: 40,
+    attackDamage: 5,
     attackRange: 7,
     attackSpeed: 8, // a bit faster
     speed: 0.06,

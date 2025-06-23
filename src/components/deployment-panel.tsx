@@ -13,8 +13,8 @@ interface DeploymentPanelProps {
 }
 
 const unitTypes: { type: UnitType, name: string, icon: React.ReactNode }[] = [
-  { type: 'warrior', name: 'Warrior', icon: <Swords className="w-8 h-8" /> },
-  { type: 'archer', name: 'Archer', icon: <Crosshair className="w-8 h-8" /> },
+  { type: 'knight', name: 'Knight', icon: <Swords className="w-8 h-8" /> },
+  { type: 'archer', name: 'Archers', icon: <Crosshair className="w-8 h-8" /> },
 ];
 
 export function DeploymentPanel({ selectedUnitType, onSelectUnit, gameState }: DeploymentPanelProps) {

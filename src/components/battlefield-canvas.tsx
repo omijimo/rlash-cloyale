@@ -208,7 +208,7 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
               ? new THREE.BoxGeometry(2, 4, 2) 
               : new THREE.BoxGeometry(1.5, 3, 1.5);
             break;
-          case 'warrior':
+          case 'knight':
             geometry = new THREE.BoxGeometry(1, 1, 1);
             break;
           case 'archer':
