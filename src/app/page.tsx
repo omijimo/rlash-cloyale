@@ -172,7 +172,7 @@ export default function Home() {
             let newUnits = [...currentUnits];
             enemyDeploymentCounterRef.current += 1;
 
-            if (enemyDeploymentCounterRef.current >= 150) { // Every 15 seconds
+            if (enemyDeploymentCounterRef.current >= 100) { // Every 10 seconds
                 enemyDeploymentCounterRef.current = 0;
                 let latestId = newUnits.reduce((maxId, unit) => Math.max(unit.id, maxId), 0);
                 const unitTypesToDeploy: UnitType[] = ['knight', 'archer', 'hogRider', 'cannon'];
