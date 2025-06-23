@@ -47,7 +47,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
     type: 'archer',
     maxHp: 40,
     attackDamage: 5,
-    attackRange: 7,
+    attackRange: 5,
     attackSpeed: 8, // a bit faster
     speed: 0.06,
     yOffset: 0.5,
