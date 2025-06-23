@@ -102,7 +102,7 @@ export default function Home() {
         const enemyUnits: Unit[] = [
             { id: ++latestId, team: 'enemy', type: 'knight', position: { x: -2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, ...UNIT_DEFINITIONS.knight, targetId: null, cooldown: 0 },
             { id: ++latestId, team: 'enemy', type: 'knight', position: { x: 2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, ...UNIT_DEFINITIONS.knight, targetId: null, cooldown: 0 },
-            { id: ++latestId, team: 'enemy', type: 'archer', position: { x: 0, y: UNIT_DEFINITIONS.archer.yOffset, z: -10 }, hp: UNIT_DEFINITIONS.archer.maxHp, ...UNIT_DEFINITIONS.archer, targetId: null, cooldown: 0 },
+            { id: ++latestId, team: 'enemy', type: 'knight', position: { x: 0, y: UNIT_DEFINITIONS.knight.yOffset, z: -10 }, hp: UNIT_DEFINITIONS.knight.maxHp, ...UNIT_DEFINITIONS.knight, targetId: null, cooldown: 0 },
         ];
         setUnits(prev => [...prev, ...newUnitsToDeploy, ...enemyUnits]);
     } else {
@@ -178,21 +178,48 @@ export default function Home() {
             if (enemyDeploymentCounterRef.current >= 150) { // Every 15 seconds
                 enemyDeploymentCounterRef.current = 0;
 
-                const latestId = newUnits.reduce((maxId, unit) => Math.max(unit.id, maxId), 0);
+                let latestId = newUnits.reduce((maxId, unit) => Math.max(unit.id, maxId), 0);
                 const unitTypesToDeploy: UnitType[] = ['knight', 'archer'];
                 const typeToDeploy = unitTypesToDeploy[Math.floor(Math.random() * unitTypesToDeploy.length)];
-                const definition = UNIT_DEFINITIONS[typeToDeploy];
+                
+                const spawnX = (Math.random() * 10) - 5;
+                const spawnZ = -8;
 
-                newUnits.push({
-                    id: latestId + 1,
-                    team: 'enemy',
-                    type: typeToDeploy,
-                    position: { x: (Math.random() * 10) - 5, y: definition.yOffset, z: -8 },
-                    hp: definition.maxHp,
-                    ...definition,
-                    targetId: null,
-                    cooldown: 0,
-                });
+                if (typeToDeploy === 'archer') {
+                    const definition = UNIT_DEFINITIONS.archer;
+                    newUnits.push({
+                        id: ++latestId,
+                        team: 'enemy',
+                        type: 'archer',
+                        position: { x: spawnX - 0.5, y: definition.yOffset, z: spawnZ },
+                        hp: definition.maxHp,
+                        ...definition,
+                        targetId: null,
+                        cooldown: 0,
+                    });
+                    newUnits.push({
+                        id: ++latestId,
+                        team: 'enemy',
+                        type: 'archer',
+                        position: { x: spawnX + 0.5, y: definition.yOffset, z: spawnZ },
+                        hp: definition.maxHp,
+                        ...definition,
+                        targetId: null,
+                        cooldown: 0,
+                    });
+                } else { // Knight
+                    const definition = UNIT_DEFINITIONS[typeToDeploy];
+                    newUnits.push({
+                        id: ++latestId,
+                        team: 'enemy',
+                        type: typeToDeploy,
+                        position: { x: spawnX, y: definition.yOffset, z: spawnZ },
+                        hp: definition.maxHp,
+                        ...definition,
+                        targetId: null,
+                        cooldown: 0,
+                    });
+                }
             }
 
             const aliveUnits = newUnits.filter(u => u.hp > 0);
