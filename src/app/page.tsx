@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BattlefieldCanvas } from '@/components/battlefield-canvas';
 import { DeploymentPanel } from '@/components/deployment-panel';
 import type { Unit, UnitType, GameState, Team, UnitDefinition, ScreenPosition } from '@/lib/game-types';
@@ -16,9 +16,9 @@ export default function Home() {
   const [selectedUnitType, setSelectedUnitType] = useState<UnitType | null>(null);
   const [gameState, setGameState] = useState<GameState>('deployment');
   const [winner, setWinner] = useState<Team | 'draw' | null>(null);
-  const [nextId, setNextId] = useState(0);
   const [unitScreenPositions, setUnitScreenPositions] = useState<Map<number, ScreenPosition>>(new Map());
   const [timeLeft, setTimeLeft] = useState(BATTLE_DURATION);
+  const enemyDeploymentCounterRef = useRef(0);
 
   const initializeState = useCallback(() => {
     const towerDefinition = UNIT_DEFINITIONS.tower;
@@ -38,10 +38,10 @@ export default function Home() {
     setUnits(initialUnits);
     setSelectedUnitType(null);
     setGameState('deployment');
-    setNextId(initialUnits.length);
     setUnitScreenPositions(new Map());
     setWinner(null);
     setTimeLeft(BATTLE_DURATION);
+    enemyDeploymentCounterRef.current = 0;
   }, []);
 
   useEffect(() => {
@@ -56,9 +56,11 @@ export default function Home() {
 
     const definition = UNIT_DEFINITIONS[selectedUnitType];
     if (!definition) return;
+    
+    const newId = Math.max(...units.map(u => u.id), 0) + 1;
 
     const newUnit: Unit = {
-      id: nextId,
+      id: newId,
       team: 'player',
       type: selectedUnitType,
       position: { x: point.x, y: definition.yOffset, z: point.z },
@@ -72,58 +74,104 @@ export default function Home() {
         // This is the first deployment, start battle and add enemies
         setGameState('battle');
         const enemyUnits: Unit[] = [
-            { id: nextId + 1, team: 'enemy', type: 'warrior', position: { x: -2, y: UNIT_DEFINITIONS.warrior.yOffset, z: -8 }, hp: 100, ...UNIT_DEFINITIONS.warrior, targetId: null, cooldown: 0 },
-            { id: nextId + 2, team: 'enemy', type: 'warrior', position: { x: 2, y: UNIT_DEFINITIONS.warrior.yOffset, z: -8 }, hp: 100, ...UNIT_DEFINITIONS.warrior, targetId: null, cooldown: 0 },
-            { id: nextId + 3, team: 'enemy', type: 'archer', position: { x: 0, y: UNIT_DEFINITIONS.archer.yOffset, z: -10 }, hp: 50, ...UNIT_DEFINITIONS.archer, targetId: null, cooldown: 0 },
+            { id: newId + 1, team: 'enemy', type: 'warrior', position: { x: -2, y: UNIT_DEFINITIONS.warrior.yOffset, z: -8 }, hp: 100, ...UNIT_DEFINITIONS.warrior, targetId: null, cooldown: 0 },
+            { id: newId + 2, team: 'enemy', type: 'warrior', position: { x: 2, y: UNIT_DEFINITIONS.warrior.yOffset, z: -8 }, hp: 100, ...UNIT_DEFINITIONS.warrior, targetId: null, cooldown: 0 },
+            { id: newId + 3, team: 'enemy', type: 'archer', position: { x: 0, y: UNIT_DEFINITIONS.archer.yOffset, z: -10 }, hp: 50, ...UNIT_DEFINITIONS.archer, targetId: null, cooldown: 0 },
         ];
         setUnits(prev => [...prev, newUnit, ...enemyUnits]);
-        setNextId(prevId => prevId + 1 + enemyUnits.length);
     } else {
         // Battle already started, just add the new unit
         setUnits(prevUnits => [...prevUnits, newUnit]);
-        setNextId(prevId => prevId + 1);
     }
-  }, [gameState, selectedUnitType, nextId]);
+  }, [gameState, selectedUnitType, units]);
 
   const handleRestart = () => {
     initializeState();
   };
   
+  const checkTimeUpWinner = useCallback(() => {
+    // This function is called when the timer runs out.
+    // It determines the winner based on remaining towers.
+    setUnits(currentUnits => {
+      // Check from a fresh copy of units to avoid race conditions.
+      const aliveUnits = currentUnits.filter(u => u.hp > 0);
+      const playerTowersLeft = aliveUnits.filter(u => u.team === 'player' && u.type === 'tower').length;
+      const enemyTowersLeft = aliveUnits.filter(u => u.team === 'enemy' && u.type === 'tower').length;
+      
+      let result: Team | 'draw' = 'draw';
+      if (playerTowersLeft > enemyTowersLeft) {
+        result = 'player';
+      } else if (enemyTowersLeft > playerTowersLeft) {
+        result = 'enemy';
+      }
+      
+      setGameState('end');
+      setWinner(result);
+      return currentUnits; // No actual change to units, just reading state.
+    });
+  }, []);
+
   // Timer effect
   useEffect(() => {
     if (gameState !== 'battle' || winner) return;
 
     const timer = setInterval(() => {
-      setTimeLeft(prev => Math.max(0, prev - 1));
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          checkTimeUpWinner();
+          return 0;
+        }
+        return prev - 1
+      });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gameState, winner]);
+  }, [gameState, winner, checkTimeUpWinner]);
 
   // Game loop effect
   useEffect(() => {
-    if (gameState !== 'battle') return;
-
-    let hasBattleEnded = false;
+    if (gameState !== 'battle' || winner) return;
     
     const endGame = (result: Team | 'draw') => {
-      if (!hasBattleEnded) {
-        hasBattleEnded = true;
-        setGameState('end');
-        setWinner(result);
-      }
+      setGameState('end');
+      setWinner(result);
     };
 
     const simulationInterval = setInterval(() => {
-        if (hasBattleEnded) {
-            clearInterval(simulationInterval);
-            return;
-        }
-
         setUnits(currentUnits => {
-            const aliveUnits = currentUnits.filter(u => u.hp > 0);
+            // Stop simulation if the game is no longer in battle state
+            if (gameState !== 'battle' || winner) {
+              return currentUnits;
+            }
             
-            // Check for win conditions
+            let newUnits = [...currentUnits];
+            enemyDeploymentCounterRef.current += 1;
+
+            // Spawn new enemy units periodically
+            if (enemyDeploymentCounterRef.current >= 150) { // Every 15 seconds
+                enemyDeploymentCounterRef.current = 0;
+
+                const latestId = newUnits.reduce((maxId, unit) => Math.max(unit.id, maxId), 0);
+                const unitTypesToDeploy: UnitType[] = ['warrior', 'archer'];
+                const typeToDeploy = unitTypesToDeploy[Math.floor(Math.random() * unitTypesToDeploy.length)];
+                const definition = UNIT_DEFINITIONS[typeToDeploy];
+
+                newUnits.push({
+                    id: latestId + 1,
+                    team: 'enemy',
+                    type: typeToDeploy,
+                    position: { x: (Math.random() * 10) - 5, y: definition.yOffset, z: -8 },
+                    hp: definition.maxHp,
+                    ...definition,
+                    targetId: null,
+                    cooldown: 0,
+                });
+            }
+
+            const aliveUnits = newUnits.filter(u => u.hp > 0);
+            
+            // Check for win conditions by king tower destruction
             const playerKingTower = aliveUnits.find(u => u.team === 'player' && u.isKingTower);
             const enemyKingTower = aliveUnits.find(u => u.team === 'enemy' && u.isKingTower);
 
@@ -133,16 +181,6 @@ export default function Home() {
             }
             if (!playerKingTower) {
               endGame('enemy');
-              return aliveUnits;
-            }
-
-            if (timeLeft <= 0) {
-              const playerTowersLeft = aliveUnits.filter(u => u.team === 'player' && u.type === 'tower').length;
-              const enemyTowersLeft = aliveUnits.filter(u => u.team === 'enemy' && u.type === 'tower').length;
-              
-              if (playerTowersLeft > enemyTowersLeft) endGame('player');
-              else if (enemyTowersLeft > playerTowersLeft) endGame('enemy');
-              else endGame('draw');
               return aliveUnits;
             }
 
@@ -211,7 +249,7 @@ export default function Home() {
     }, 100);
 
     return () => clearInterval(simulationInterval);
-  }, [gameState, timeLeft]);
+  }, [gameState, winner]);
 
   const handleUnitPositionsUpdate = useCallback((positions: Map<number, ScreenPosition>) => {
     setUnitScreenPositions(new Map(positions));
