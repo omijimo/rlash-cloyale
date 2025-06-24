@@ -26,13 +26,13 @@ export default function Home() {
 
     const initialUnits: Unit[] = [
       // Player towers
-      { id: 0, team: 'player', type: 'tower', position: { x: -5, y: towerDefinition.yOffset, z: 6 }, hp: towerDefinition.maxHp, ...towerDefinition, targetId: null, cooldown: 0 },
-      { id: 1, team: 'player', type: 'tower', position: { x: 5, y: towerDefinition.yOffset, z: 6 }, hp: towerDefinition.maxHp, ...towerDefinition, targetId: null, cooldown: 0 },
-      { id: 2, team: 'player', type: 'tower', position: { x: 0, y: towerDefinition.yOffset, z: 10 }, hp: kingTowerHp, ...towerDefinition, maxHp: kingTowerHp, isKingTower: true, targetId: null, cooldown: 0 },
+      { id: 0, team: 'player', ...towerDefinition, type: 'tower', position: { x: -5, y: towerDefinition.yOffset, z: 6 }, hp: towerDefinition.maxHp, targetId: null, cooldown: 0 },
+      { id: 1, team: 'player', ...towerDefinition, type: 'tower', position: { x: 5, y: towerDefinition.yOffset, z: 6 }, hp: towerDefinition.maxHp, targetId: null, cooldown: 0 },
+      { id: 2, team: 'player', ...towerDefinition, type: 'tower', position: { x: 0, y: towerDefinition.yOffset, z: 10 }, maxHp: kingTowerHp, hp: kingTowerHp, isKingTower: true, targetId: null, cooldown: 0 },
       // Enemy towers
-      { id: 3, team: 'enemy', type: 'tower', position: { x: -5, y: towerDefinition.yOffset, z: -6 }, hp: towerDefinition.maxHp, ...towerDefinition, targetId: null, cooldown: 0 },
-      { id: 4, team: 'enemy', type: 'tower', position: { x: 5, y: towerDefinition.yOffset, z: -6 }, hp: towerDefinition.maxHp, ...towerDefinition, targetId: null, cooldown: 0 },
-      { id: 5, team: 'enemy', type: 'tower', position: { x: 0, y: towerDefinition.yOffset, z: -10 }, hp: kingTowerHp, ...towerDefinition, maxHp: kingTowerHp, isKingTower: true, targetId: null, cooldown: 0 },
+      { id: 3, team: 'enemy', ...towerDefinition, type: 'tower', position: { x: -5, y: towerDefinition.yOffset, z: -6 }, hp: towerDefinition.maxHp, targetId: null, cooldown: 0 },
+      { id: 4, team: 'enemy', ...towerDefinition, type: 'tower', position: { x: 5, y: towerDefinition.yOffset, z: -6 }, hp: towerDefinition.maxHp, targetId: null, cooldown: 0 },
+      { id: 5, team: 'enemy', ...towerDefinition, type: 'tower', position: { x: 0, y: towerDefinition.yOffset, z: -10 }, maxHp: kingTowerHp, hp: kingTowerHp, isKingTower: true, targetId: null, cooldown: 0 },
     ];
     
     setUnits(initialUnits);
@@ -62,20 +62,20 @@ export default function Home() {
         newUnitsToDeploy.push({
             id: ++latestId,
             team: 'player',
+            ...definition,
             type: 'archer',
             position: { x: point.x - 0.5, y: definition.yOffset, z: point.z },
             hp: definition.maxHp,
-            ...definition,
             targetId: null,
             cooldown: 0,
         });
         newUnitsToDeploy.push({
             id: ++latestId,
             team: 'player',
+            ...definition,
             type: 'archer',
             position: { x: point.x + 0.5, y: definition.yOffset, z: point.z },
             hp: definition.maxHp,
-            ...definition,
             targetId: null,
             cooldown: 0,
         });
@@ -85,10 +85,10 @@ export default function Home() {
         newUnitsToDeploy.push({
             id: ++latestId,
             team: 'player',
+            ...definition,
             type: selectedUnitType,
             position: { x: point.x, y: definition.yOffset, z: point.z },
             hp: definition.maxHp,
-            ...definition,
             targetId: null,
             cooldown: 0,
         });
@@ -100,8 +100,8 @@ export default function Home() {
         // This is the first deployment, start battle and add enemies
         setGameState('battle');
         const enemyUnits: Unit[] = [
-            { id: ++latestId, team: 'enemy', type: 'knight', position: { x: -2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, ...UNIT_DEFINITIONS.knight, targetId: null, cooldown: 0 },
-            { id: ++latestId, team: 'enemy', type: 'knight', position: { x: 2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, ...UNIT_DEFINITIONS.knight, targetId: null, cooldown: 0 },
+            { id: ++latestId, team: 'enemy', ...UNIT_DEFINITIONS.knight, type: 'knight', position: { x: -2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, targetId: null, cooldown: 0 },
+            { id: ++latestId, team: 'enemy', ...UNIT_DEFINITIONS.knight, type: 'knight', position: { x: 2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, targetId: null, cooldown: 0 },
         ];
         setUnits(prev => [...prev, ...newUnitsToDeploy, ...enemyUnits]);
     } else {
@@ -183,11 +183,11 @@ export default function Home() {
 
                 if (typeToDeploy === 'archer') {
                     const definition = UNIT_DEFINITIONS.archer;
-                    newUnits.push({ id: ++latestId, team: 'enemy', type: 'archer', position: { x: spawnX - 0.5, y: definition.yOffset, z: spawnZ }, hp: definition.maxHp, ...definition, targetId: null, cooldown: 0 });
-                    newUnits.push({ id: ++latestId, team: 'enemy', type: 'archer', position: { x: spawnX + 0.5, y: definition.yOffset, z: spawnZ }, hp: definition.maxHp, ...definition, targetId: null, cooldown: 0 });
+                    newUnits.push({ id: ++latestId, team: 'enemy', ...definition, type: 'archer', position: { x: spawnX - 0.5, y: definition.yOffset, z: spawnZ }, hp: definition.maxHp, targetId: null, cooldown: 0 });
+                    newUnits.push({ id: ++latestId, team: 'enemy', ...definition, type: 'archer', position: { x: spawnX + 0.5, y: definition.yOffset, z: spawnZ }, hp: definition.maxHp, targetId: null, cooldown: 0 });
                 } else {
                     const definition = UNIT_DEFINITIONS[typeToDeploy];
-                    newUnits.push({ id: ++latestId, team: 'enemy', type: typeToDeploy, position: { x: spawnX, y: definition.yOffset, z: spawnZ }, hp: definition.maxHp, ...definition, targetId: null, cooldown: 0 });
+                    newUnits.push({ id: ++latestId, team: 'enemy', ...definition, type: typeToDeploy, position: { x: spawnX, y: definition.yOffset, z: spawnZ }, hp: definition.maxHp, targetId: null, cooldown: 0 });
                 }
             }
 
@@ -349,9 +349,9 @@ export default function Home() {
   const getEndGameMessage = () => {
     switch (winner) {
       case 'player':
-        return { title: 'Glorious Victory!', description: 'You have crushed the enemy and claimed the battlefield.' };
+        return { title: 'Victory!', description: 'good job' };
       case 'enemy':
-        return { title: 'Valiant Defeat!', description: 'Your forces have been routed. Live to fight another day.' };
+        return { title: 'Defeat!', description: 'How did your chopped ahh lose to a bot 💀' };
       case 'draw':
         return { title: 'Stalemate!', description: 'The horns of retreat have sounded. Neither side claims victory.' };
       default:
