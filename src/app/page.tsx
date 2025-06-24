@@ -220,6 +220,7 @@ export default function Home() {
 
             const unitMap = new Map(aliveUnits.map(u => [u.id, u]));
 
+            const damageEvents: { id: number, damage: number }[] = [];
             const updatedUnits = aliveUnits.map(unit => {
               let newUnit = { ...unit };
 
@@ -282,10 +283,7 @@ export default function Home() {
                   }
                 } else if (newUnit.cooldown === 0) {
                   // Attack target
-                  const targetInMap = unitMap.get(currentTarget.id);
-                  if (targetInMap) {
-                    targetInMap.hp -= newUnit.attackDamage;
-                  }
+                  damageEvents.push({ id: currentTarget.id, damage: newUnit.attackDamage });
                   newUnit.cooldown = newUnit.attackSpeed;
                 }
               } else { // No enemy in detection range, follow path
@@ -324,15 +322,20 @@ export default function Home() {
                         newUnit.position.z += direction.z * newUnit.speed;
                     } else if (newUnit.cooldown === 0) {
                       newUnit.targetId = pathTarget.id;
-                      const targetInMap = unitMap.get(pathTarget.id);
-                      if (targetInMap) {
-                        targetInMap.hp -= newUnit.attackDamage;
-                      }
+                      damageEvents.push({ id: pathTarget.id, damage: newUnit.attackDamage });
                       newUnit.cooldown = newUnit.attackSpeed;
                     }
                 }
               }
               return newUnit;
+            });
+
+            // Apply all damage events
+            damageEvents.forEach(({ id, damage }) => {
+              const target = updatedUnits.find(u => u.id === id);
+              if (target) {
+                target.hp -= damage;
+              }
             });
 
             return updatedUnits.filter(u => u.hp > 0);

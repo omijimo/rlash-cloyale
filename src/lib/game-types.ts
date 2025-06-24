@@ -50,7 +50,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
   archer: {
     type: 'archer',
     maxHp: 30,
-    attackDamage: 4,
+    attackDamage: 5,
     attackRange: 4,
     detectionRange: 6,
     attackSpeed: 8, // a bit faster
@@ -59,7 +59,7 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
   },
   tower: {
     type: 'tower',
-    maxHp: 250,
+    maxHp: 300,
     attackDamage: 6,
     attackRange: 5,
     detectionRange: 5,
@@ -70,12 +70,12 @@ export const UNIT_DEFINITIONS: Record<UnitType, UnitDefinition> = {
   },
   hogRider: {
     type: 'hogRider',
-    maxHp: 250,
+    maxHp: 200,
     attackDamage: 25,
     attackRange: 1.5,
     detectionRange: 10,
-    attackSpeed: 12,
-    speed: 0.08,
+    attackSpeed: 15,
+    speed: 0.1,
     yOffset: 0.4,
   },
   cannon: {
