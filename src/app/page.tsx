@@ -3,21 +3,27 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { BattlefieldCanvas } from '@/components/battlefield-canvas';
 import { DeploymentPanel } from '@/components/deployment-panel';
-import type { Unit, UnitType, GameState, Team, UnitDefinition, ScreenPosition } from '@/lib/game-types';
-import { UNIT_DEFINITIONS } from '@/lib/game-types';
+import { DeckSelection } from '@/components/deck-selection';
+import type { Unit, UnitType, GameState, Team, UnitDefinition, ScreenPosition, PlayerDeck } from '@/lib/game-types';
+import { UNIT_DEFINITIONS, CARD_DEFINITIONS } from '@/lib/game-types';
 import * as THREE from 'three';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
+import { audioManager } from '@/lib/audio-manager';
 
 const BATTLE_DURATION = 180; // 3 minutes
+const MAX_ELIXIR = 10;
+const ELIXIR_GENERATION_RATE = 1; // 1 elixir per second
 
 export default function Home() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedUnitType, setSelectedUnitType] = useState<UnitType | null>(null);
-  const [gameState, setGameState] = useState<GameState>('deployment');
+  const [gameState, setGameState] = useState<GameState>('deckSelection');
   const [winner, setWinner] = useState<Team | 'draw' | null>(null);
   const [unitScreenPositions, setUnitScreenPositions] = useState<Map<number, ScreenPosition>>(new Map());
   const [timeLeft, setTimeLeft] = useState(BATTLE_DURATION);
+  const [playerDeck, setPlayerDeck] = useState<PlayerDeck>({ cards: [] });
+  const [elixir, setElixir] = useState(MAX_ELIXIR);
   const enemyDeploymentCounterRef = useRef(0);
 
   const initializeState = useCallback(() => {
@@ -41,12 +47,20 @@ export default function Home() {
     setUnitScreenPositions(new Map());
     setWinner(null);
     setTimeLeft(BATTLE_DURATION);
+    setElixir(MAX_ELIXIR);
     enemyDeploymentCounterRef.current = 0;
   }, []);
 
-  useEffect(() => {
+  const handleDeckConfirmed = useCallback((deck: PlayerDeck) => {
+    setPlayerDeck(deck);
     initializeState();
+    audioManager.playBackgroundMusic();
   }, [initializeState]);
+
+  useEffect(() => {
+    // Start with deck selection
+    setGameState('deckSelection');
+  }, []);
   
   const handleDeployUnit = useCallback((point: THREE.Vector3) => {
     if (gameState === 'end' || !selectedUnitType) return;
@@ -54,71 +68,98 @@ export default function Home() {
     // Player can only deploy on their side of the field
     if (point.z < 0) return;
 
+    const cardDef = CARD_DEFINITIONS[selectedUnitType];
+    if (elixir < cardDef.elixirCost) return; // Can't afford the card
+
     let latestId = units.reduce((maxId, unit) => Math.max(unit.id, maxId), 0);
     const newUnitsToDeploy: Unit[] = [];
 
-    if (selectedUnitType === 'archer') {
-        const definition = UNIT_DEFINITIONS.archer;
-        newUnitsToDeploy.push({
-            id: ++latestId,
-            team: 'player',
-            ...definition,
-            type: 'archer',
-            position: { x: point.x - 0.5, y: definition.yOffset, z: point.z },
-            hp: definition.maxHp,
-            targetId: null,
-            cooldown: 0,
-        });
-        newUnitsToDeploy.push({
-            id: ++latestId,
-            team: 'player',
-            ...definition,
-            type: 'archer',
-            position: { x: point.x + 0.5, y: definition.yOffset, z: point.z },
-            hp: definition.maxHp,
-            targetId: null,
-            cooldown: 0,
-        });
-    } else {
-        const definition = UNIT_DEFINITIONS[selectedUnitType];
-        if (!definition) return;
-        newUnitsToDeploy.push({
-            id: ++latestId,
-            team: 'player',
-            ...definition,
-            type: selectedUnitType,
-            position: { x: point.x, y: definition.yOffset, z: point.z },
-            hp: definition.maxHp,
-            targetId: null,
-            cooldown: 0,
-        });
+    // Handle spells differently
+    if (cardDef.isSpell) {
+      handleSpellCast(selectedUnitType, point);
+      setElixir(prev => prev - cardDef.elixirCost);
+      setSelectedUnitType(null);
+      audioManager.playSoundEffect('spell');
+      return;
+    }
+
+    // Handle units with spawn counts (like archers, skeletons, etc.)
+    const spawnCount = cardDef.spawnCount || 1;
+    const definition = UNIT_DEFINITIONS[selectedUnitType];
+    
+    for (let i = 0; i < spawnCount; i++) {
+      const offsetX = spawnCount > 1 ? (i - (spawnCount - 1) / 2) * 0.8 : 0;
+      const offsetZ = spawnCount > 3 ? Math.floor(i / 2) * 0.8 : 0;
+      
+      newUnitsToDeploy.push({
+        id: ++latestId,
+        team: 'player',
+        ...definition,
+        type: selectedUnitType,
+        position: { 
+          x: point.x + offsetX, 
+          y: definition.yOffset, 
+          z: point.z + offsetZ 
+        },
+        hp: definition.maxHp,
+        targetId: null,
+        cooldown: 0,
+      });
     }
 
     if (newUnitsToDeploy.length === 0) return;
 
+    // Deduct elixir cost
+    setElixir(prev => prev - cardDef.elixirCost);
+    audioManager.playSoundEffect('deploy');
+
     if (gameState === 'deployment') {
-        // This is the first deployment, start battle and add enemies
-        setGameState('battle');
-        const enemyUnits: Unit[] = [
-            { id: ++latestId, team: 'enemy', ...UNIT_DEFINITIONS.knight, type: 'knight', position: { x: -2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, targetId: null, cooldown: 0 },
-            { id: ++latestId, team: 'enemy', ...UNIT_DEFINITIONS.knight, type: 'knight', position: { x: 2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, targetId: null, cooldown: 0 },
-        ];
-        setUnits(prev => [...prev, ...newUnitsToDeploy, ...enemyUnits]);
+      // This is the first deployment, start battle and add enemies
+      setGameState('battle');
+      const enemyUnits: Unit[] = [
+        { id: ++latestId, team: 'enemy', ...UNIT_DEFINITIONS.knight, type: 'knight', position: { x: -2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, targetId: null, cooldown: 0 },
+        { id: ++latestId, team: 'enemy', ...UNIT_DEFINITIONS.knight, type: 'knight', position: { x: 2, y: UNIT_DEFINITIONS.knight.yOffset, z: -8 }, hp: UNIT_DEFINITIONS.knight.maxHp, targetId: null, cooldown: 0 },
+      ];
+      setUnits(prev => [...prev, ...newUnitsToDeploy, ...enemyUnits]);
     } else {
-        // Battle already started, just add the new units
-        setUnits(prevUnits => [...prevUnits, ...newUnitsToDeploy]);
+      // Battle already started, just add the new units
+      setUnits(prevUnits => [...prevUnits, ...newUnitsToDeploy]);
     }
-  }, [gameState, selectedUnitType, units]);
+    
+    setSelectedUnitType(null);
+  }, [gameState, selectedUnitType, units, elixir]);
+
+  const handleSpellCast = (spellType: UnitType, point: THREE.Vector3) => {
+    const spellDef = UNIT_DEFINITIONS[spellType];
+    const splashRadius = spellDef.splashRadius || 2;
+    
+    // Find all units in range
+    const affectedUnits = units.filter(unit => {
+      const distance = Math.sqrt(
+        Math.pow(unit.position.x - point.x, 2) + 
+        Math.pow(unit.position.z - point.z, 2)
+      );
+      return distance <= splashRadius && unit.team === 'enemy';
+    });
+
+    // Apply damage
+    setUnits(prevUnits => 
+      prevUnits.map(unit => {
+        if (affectedUnits.find(affected => affected.id === unit.id)) {
+          return { ...unit, hp: Math.max(0, unit.hp - spellDef.attackDamage) };
+        }
+        return unit;
+      })
+    );
+  };
 
   const handleRestart = () => {
-    initializeState();
+    setGameState('deckSelection');
+    audioManager.stopBackgroundMusic();
   };
   
   const checkTimeUpWinner = useCallback(() => {
-    // This function is called when the timer runs out.
-    // It determines the winner based on remaining towers.
     setUnits(currentUnits => {
-      // Check from a fresh copy of units to avoid race conditions.
       const aliveUnits = currentUnits.filter(u => u.hp > 0);
       const playerTowersLeft = aliveUnits.filter(u => u.team === 'player' && u.type === 'tower').length;
       const enemyTowersLeft = aliveUnits.filter(u => u.team === 'enemy' && u.type === 'tower').length;
@@ -132,9 +173,22 @@ export default function Home() {
       
       setGameState('end');
       setWinner(result);
-      return currentUnits; // No actual change to units, just reading state.
+      audioManager.stopBackgroundMusic();
+      audioManager.playSoundEffect(result === 'player' ? 'victory' : 'defeat');
+      return currentUnits;
     });
   }, []);
+
+  // Elixir generation effect
+  useEffect(() => {
+    if (gameState !== 'battle' || winner) return;
+
+    const elixirTimer = setInterval(() => {
+      setElixir(prev => Math.min(MAX_ELIXIR, prev + ELIXIR_GENERATION_RATE / 10)); // 0.1 elixir per 100ms
+    }, 100);
+
+    return () => clearInterval(elixirTimer);
+  }, [gameState, winner]);
 
   // Timer effect
   useEffect(() => {
@@ -161,6 +215,8 @@ export default function Home() {
     const endGame = (result: Team | 'draw') => {
       setGameState('end');
       setWinner(result);
+      audioManager.stopBackgroundMusic();
+      audioManager.playSoundEffect(result === 'player' ? 'victory' : 'defeat');
     };
 
     const simulationInterval = setInterval(() => {
@@ -172,23 +228,47 @@ export default function Home() {
             let newUnits = [...currentUnits];
             enemyDeploymentCounterRef.current += 1;
 
-            if (enemyDeploymentCounterRef.current >= 100) { // Every 10 seconds
+            // Enemy AI - deploy units more intelligently
+            if (enemyDeploymentCounterRef.current >= 150) { // Every 15 seconds
                 enemyDeploymentCounterRef.current = 0;
                 let latestId = newUnits.reduce((maxId, unit) => Math.max(unit.id, maxId), 0);
-                const unitTypesToDeploy: UnitType[] = ['knight', 'archer', 'hogRider', 'cannon'];
-                const typeToDeploy = unitTypesToDeploy[Math.floor(Math.random() * unitTypesToDeploy.length)];
                 
-                const spawnX = (Math.random() * 10) - 5;
-                const spawnZ = -8;
+                // Choose enemy units based on player's deck
+                const enemyUnitTypes: UnitType[] = ['knight', 'archer', 'giant', 'wizard', 'dragon', 'hogRider', 'cannon'];
+                const randomTypes = enemyUnitTypes.sort(() => Math.random() - 0.5).slice(0, 2);
+                
+                randomTypes.forEach(unitType => {
+                  const definition = UNIT_DEFINITIONS[unitType];
+                  const spawnX = (Math.random() * 8) - 4;
+                  const spawnZ = -8;
 
-                if (typeToDeploy === 'archer') {
-                    const definition = UNIT_DEFINITIONS.archer;
-                    newUnits.push({ id: ++latestId, team: 'enemy', ...definition, type: 'archer', position: { x: spawnX - 0.5, y: definition.yOffset, z: spawnZ }, hp: definition.maxHp, targetId: null, cooldown: 0 });
-                    newUnits.push({ id: ++latestId, team: 'enemy', ...definition, type: 'archer', position: { x: spawnX + 0.5, y: definition.yOffset, z: spawnZ }, hp: definition.maxHp, targetId: null, cooldown: 0 });
-                } else {
-                    const definition = UNIT_DEFINITIONS[typeToDeploy];
-                    newUnits.push({ id: ++latestId, team: 'enemy', ...definition, type: typeToDeploy, position: { x: spawnX, y: definition.yOffset, z: spawnZ }, hp: definition.maxHp, targetId: null, cooldown: 0 });
-                }
+                  if (unitType === 'archer') {
+                    // Deploy archers in pairs
+                    for (let i = 0; i < 2; i++) {
+                      newUnits.push({ 
+                        id: ++latestId, 
+                        team: 'enemy', 
+                        ...definition, 
+                        type: 'archer', 
+                        position: { x: spawnX + (i - 0.5) * 0.8, y: definition.yOffset, z: spawnZ }, 
+                        hp: definition.maxHp, 
+                        targetId: null, 
+                        cooldown: 0 
+                      });
+                    }
+                  } else {
+                    newUnits.push({ 
+                      id: ++latestId, 
+                      team: 'enemy', 
+                      ...definition, 
+                      type: unitType, 
+                      position: { x: spawnX, y: definition.yOffset, z: spawnZ }, 
+                      hp: definition.maxHp, 
+                      targetId: null, 
+                      cooldown: 0 
+                    });
+                  }
+                });
             }
 
             const aliveUnits = newUnits.filter(u => u.hp > 0);
@@ -208,6 +288,10 @@ export default function Home() {
               let minDistance = range;
               const unitPos = new THREE.Vector3(unit.position.x, unit.position.y, unit.position.z);
               for (const target of targets) {
+                // Check if this unit can target the potential target
+                const canTarget = canUnitTarget(unit, target);
+                if (!canTarget) continue;
+                
                 const targetPos = new THREE.Vector3(target.position.x, target.position.y, target.position.z);
                 const distance = unitPos.distanceTo(targetPos);
                 if (distance < minDistance) {
@@ -218,9 +302,22 @@ export default function Home() {
               return closestTarget;
             };
 
+            const canUnitTarget = (attacker: Unit, target: Unit): boolean => {
+              const attackerDef = UNIT_DEFINITIONS[attacker.type];
+              const targetDef = UNIT_DEFINITIONS[target.type];
+              
+              if (attackerDef.targetType === 'ground') {
+                return !targetDef.isFlying;
+              } else if (attackerDef.targetType === 'air') {
+                return !!targetDef.isFlying;
+              } else { // 'both'
+                return true;
+              }
+            };
+
             const unitMap = new Map(aliveUnits.map(u => [u.id, u]));
 
-            const damageEvents: { id: number, damage: number }[] = [];
+            const damageEvents: { id: number, damage: number, attacker: Unit }[] = [];
             const updatedUnits = aliveUnits.map(unit => {
               let newUnit = { ...unit };
 
@@ -236,32 +333,29 @@ export default function Home() {
               // 1. Check if the unit has a valid, existing target
               if (newUnit.targetId !== null) {
                 const targetFromMap = unitMap.get(newUnit.targetId);
-                // Check if target is alive (in unitMap) and in detection range
-                if (targetFromMap) {
-                  // Hog Riders should not have non-building targets
-                  if (newUnit.type === 'hogRider' && !targetFromMap.isBuilding) {
-                     newUnit.targetId = null;
+                if (targetFromMap && canUnitTarget(newUnit, targetFromMap)) {
+                  const unitPos = new THREE.Vector3(newUnit.position.x, newUnit.position.y, newUnit.position.z);
+                  const targetPos = new THREE.Vector3(targetFromMap.position.x, targetFromMap.position.y, targetFromMap.position.z);
+                  if (unitPos.distanceTo(targetPos) <= newUnit.detectionRange) {
+                    currentTarget = targetFromMap;
                   } else {
-                    const unitPos = new THREE.Vector3(newUnit.position.x, newUnit.position.y, newUnit.position.z);
-                    const targetPos = new THREE.Vector3(targetFromMap.position.x, targetFromMap.position.y, targetFromMap.position.z);
-                    if (unitPos.distanceTo(targetPos) <= newUnit.detectionRange) {
-                      currentTarget = targetFromMap;
-                    } else {
-                      newUnit.targetId = null; // Target is out of range
-                    }
+                    newUnit.targetId = null; // Target is out of range
                   }
                 } else {
-                  newUnit.targetId = null; // Target is dead
+                  newUnit.targetId = null; // Target is dead or can't be targeted
                 }
               }
 
               // 2. If no valid target, find a new one
               if (!currentTarget) {
-                const potentialAttackTargets = newUnit.type === 'hogRider'
-                  ? allEnemyUnits.filter(u => u.isBuilding)
-                  : allEnemyUnits;
+                let potentialTargets = allEnemyUnits;
                 
-                const closestTarget = findClosestTargetInRange(newUnit, potentialAttackTargets, newUnit.detectionRange);
+                // Special targeting for hog riders and similar units
+                if (newUnit.type === 'hogRider') {
+                  potentialTargets = allEnemyUnits.filter(u => u.isBuilding);
+                }
+                
+                const closestTarget = findClosestTargetInRange(newUnit, potentialTargets, newUnit.detectionRange);
                 if (closestTarget) {
                   currentTarget = closestTarget;
                   newUnit.targetId = closestTarget.id;
@@ -283,7 +377,7 @@ export default function Home() {
                   }
                 } else if (newUnit.cooldown === 0) {
                   // Attack target
-                  damageEvents.push({ id: currentTarget.id, damage: newUnit.attackDamage });
+                  damageEvents.push({ id: currentTarget.id, damage: newUnit.attackDamage, attacker: newUnit });
                   newUnit.cooldown = newUnit.attackSpeed;
                 }
               } else { // No enemy in detection range, follow path
@@ -322,7 +416,7 @@ export default function Home() {
                         newUnit.position.z += direction.z * newUnit.speed;
                     } else if (newUnit.cooldown === 0) {
                       newUnit.targetId = pathTarget.id;
-                      damageEvents.push({ id: pathTarget.id, damage: newUnit.attackDamage });
+                      damageEvents.push({ id: pathTarget.id, damage: newUnit.attackDamage, attacker: newUnit });
                       newUnit.cooldown = newUnit.attackSpeed;
                     }
                 }
@@ -331,10 +425,38 @@ export default function Home() {
             });
 
             // Apply all damage events
-            damageEvents.forEach(({ id, damage }) => {
+            damageEvents.forEach(({ id, damage, attacker }) => {
               const target = updatedUnits.find(u => u.id === id);
               if (target) {
                 target.hp -= damage;
+                
+                // Play appropriate sound effects
+                if (target.hp <= 0) {
+                  if (target.isBuilding) {
+                    audioManager.playSoundEffect('destroy');
+                  } else {
+                    audioManager.playSoundEffect('damage');
+                  }
+                } else if (target.isBuilding) {
+                  audioManager.playSoundEffect('tower_hit');
+                } else {
+                  audioManager.playSoundEffect('attack');
+                }
+                
+                // Handle splash damage
+                const attackerDef = UNIT_DEFINITIONS[attacker.type];
+                if (attackerDef.splashRadius && attackerDef.splashRadius > 0) {
+                  const targetPos = new THREE.Vector3(target.position.x, target.position.y, target.position.z);
+                  updatedUnits.forEach(unit => {
+                    if (unit.id !== target.id && unit.team === target.team) {
+                      const unitPos = new THREE.Vector3(unit.position.x, unit.position.y, unit.position.z);
+                      const distance = targetPos.distanceTo(unitPos);
+                      if (distance <= attackerDef.splashRadius!) {
+                        unit.hp -= damage * 0.5; // Reduced splash damage
+                      }
+                    }
+                  });
+                }
               }
             });
 
@@ -352,17 +474,21 @@ export default function Home() {
   const getEndGameMessage = () => {
     switch (winner) {
       case 'player':
-        return { title: 'Victory!', description: 'good job' };
+        return { title: 'Victory!', description: 'Excellent strategy! You destroyed the enemy King Tower!' };
       case 'enemy':
-        return { title: 'Defeat!', description: 'How did your chopped ahh lose to a bot 💀' };
+        return { title: 'Defeat!', description: 'Your towers have fallen. Build a better deck and try again!' };
       case 'draw':
-        return { title: 'Stalemate!', description: 'The horns of retreat have sounded. Neither side claims victory.' };
+        return { title: 'Stalemate!', description: 'The battle ends in a draw. Both armies fought valiantly!' };
       default:
         return { title: '', description: '' };
     }
   };
   
   const { title, description } = getEndGameMessage();
+
+  if (gameState === 'deckSelection') {
+    return <DeckSelection onDeckConfirmed={handleDeckConfirmed} />;
+  }
 
   return (
     <div className="flex flex-col h-screen w-screen bg-background font-body">
@@ -383,7 +509,7 @@ export default function Home() {
               </p>
               <Button size="lg" onClick={handleRestart} className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold text-lg">
                 <RefreshCw className="mr-2 h-6 w-6" />
-                To Battle!
+                New Battle!
               </Button>
             </div>
           </div>
@@ -399,7 +525,6 @@ export default function Home() {
           {units.map(unit => {
             const pos = unitScreenPositions.get(unit.id);
             if (!pos) return null;
-            const yOffset = unit.isBuilding ? (unit.isKingTower ? 40 : 30) : 20;
             return (
               <div key={unit.id} className="health-bar" style={{ left: `${pos.x}px`, top: `${pos.y}px` }}>
                 <div className="health-bar-inner" style={{ width: `${(unit.hp / unit.maxHp) * 100}%` }}></div>
@@ -412,6 +537,9 @@ export default function Home() {
         selectedUnitType={selectedUnitType}
         onSelectUnit={setSelectedUnitType}
         gameState={gameState}
+        playerDeck={playerDeck}
+        elixir={elixir}
+        maxElixir={MAX_ELIXIR}
       />
     </div>
   );

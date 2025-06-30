@@ -203,23 +203,91 @@ export function BattlefieldCanvas({ units, onDeployUnit, gameState, selectedUnit
       if (!currentMeshes.has(unit.id)) {
         let geometry: THREE.BufferGeometry;
         switch (unit.type) {
+          // Buildings
           case 'tower':
             geometry = unit.isKingTower 
               ? new THREE.BoxGeometry(2, 4, 2) 
               : new THREE.BoxGeometry(1.5, 3, 1.5);
             break;
+          case 'cannon':
+            geometry = new THREE.CylinderGeometry(0.7, 0.7, 0.6, 16);
+            break;
+          case 'tesla':
+            geometry = new THREE.CylinderGeometry(0.5, 0.5, 0.8, 8);
+            break;
+          case 'infernoTower':
+            geometry = new THREE.ConeGeometry(0.8, 1.5, 8);
+            break;
+          case 'xbow':
+            geometry = new THREE.BoxGeometry(1.2, 0.4, 2);
+            break;
+          case 'mortar':
+            geometry = new THREE.CylinderGeometry(0.8, 0.8, 0.8, 8);
+            break;
+          
+          // Melee Units
           case 'knight':
             geometry = new THREE.BoxGeometry(1, 1, 1);
             break;
-          case 'archer':
-            geometry = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 16);
+          case 'giant':
+            geometry = new THREE.BoxGeometry(1.8, 2.5, 1.8);
+            break;
+          case 'prince':
+            geometry = new THREE.BoxGeometry(1.2, 1.5, 1.2);
+            break;
+          case 'pekka':
+            geometry = new THREE.BoxGeometry(1.5, 3, 1.5);
+            break;
+          case 'minipekka':
+            geometry = new THREE.BoxGeometry(1.2, 1.8, 1.2);
+            break;
+          case 'barbarian':
+            geometry = new THREE.BoxGeometry(1, 1.2, 1);
+            break;
+          case 'goblin':
+            geometry = new THREE.BoxGeometry(0.6, 0.8, 0.6);
+            break;
+          case 'skeleton':
+            geometry = new THREE.BoxGeometry(0.5, 1, 0.5);
+            break;
+          case 'valkyrie':
+            geometry = new THREE.CylinderGeometry(0.8, 0.8, 1.2, 8);
             break;
           case 'hogRider':
             geometry = new THREE.BoxGeometry(1.2, 0.8, 1.2);
             break;
-          case 'cannon':
-            geometry = new THREE.CylinderGeometry(0.7, 0.7, 0.6, 16);
+          case 'royalGiant':
+            geometry = new THREE.BoxGeometry(1.6, 2.2, 1.6);
             break;
+          
+          // Ranged Units
+          case 'archer':
+            geometry = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 16);
+            break;
+          case 'wizard':
+            geometry = new THREE.ConeGeometry(0.6, 1.5, 8);
+            break;
+          case 'musketeer':
+            geometry = new THREE.BoxGeometry(0.8, 1.4, 0.8);
+            break;
+          case 'bomber':
+            geometry = new THREE.SphereGeometry(0.6, 8, 8);
+            break;
+          case 'witch':
+            geometry = new THREE.ConeGeometry(0.5, 1.4, 6);
+            break;
+          
+          // Flying Units
+          case 'dragon':
+            geometry = new THREE.BoxGeometry(1.4, 0.6, 2);
+            break;
+          case 'balloon':
+            geometry = new THREE.SphereGeometry(1, 8, 8);
+            break;
+          case 'minion':
+            geometry = new THREE.ConeGeometry(0.4, 0.8, 6);
+            break;
+          
           default:
             geometry = new THREE.BoxGeometry(1, 1, 1);
         }
